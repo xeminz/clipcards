@@ -63,7 +63,69 @@
   .badge .ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; }
   .badge.streak .ic { background: linear-gradient(135deg, #ffb347, #ff5f1f); }
   .badge.streak.cold .ic { background: var(--paper-2); filter: grayscale(1); }
-  .badge.level { padding-left: 5px; }
+  .badge.level { padding-left: 5px; border: 0; color: var(--ink); cursor: pointer; position: relative; }
+  .badge.level:hover { outline: 1.5px solid var(--ink); }
+  .badge.level.has-new::after { content: ""; position: absolute; top: 0; right: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--paper); }
+
+  /* ---------- Freischaltbare Farben ---------- */
+  :root[data-accent="ocean"] { --accent: #2563eb; }
+  :root[data-accent="forest"] { --accent: #2f7d4f; }
+  :root[data-accent="lavender"] { --accent: #7c3aed; }
+  :root[data-accent="rose"] { --accent: #db2777; }
+  @media (prefers-color-scheme: dark) {
+    :root[data-accent="ocean"] { --accent: #60a5fa; }
+    :root[data-accent="forest"] { --accent: #5cc28a; }
+    :root[data-accent="lavender"] { --accent: #a78bfa; }
+    :root[data-accent="rose"] { --accent: #f472b6; }
+  }
+  :root[data-accent] { --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--card)); }
+
+  /* ---------- Freischaltbare Kartendesigns ---------- */
+  :root[data-cards="grid"] .big .face, :root[data-cards="grid"] .mini .face {
+    background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 18px 18px; background-position: 0 0; }
+  :root[data-cards="sticky"] .big .face, :root[data-cards="sticky"] .mini .face {
+    background: #fde68a; color: #3b2f0b; border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 18px 26px -16px rgba(80,60,0,.55); }
+  :root[data-cards="sticky"] .big .face small, :root[data-cards="sticky"] .mini .face small,
+  :root[data-cards="sticky"] .big .flip-hint { color: #8a6d1d; }
+  :root[data-cards="sticky"] .big .a, :root[data-cards="sticky"] .mini .a { color: #3b2f0b; }
+  :root[data-cards="sticky"] .big .back, :root[data-cards="sticky"] .mini .back { background: #fbcfe8; color: #4a1630; }
+  :root[data-cards="sticky"] .big .back .a, :root[data-cards="sticky"] .mini .back .a { color: #4a1630; }
+  :root[data-cards="chalk"] .big .face, :root[data-cards="chalk"] .mini .face {
+    background: radial-gradient(circle at 30% 20%, #33503f, #233a2d 70%); color: #eef4ec;
+    box-shadow: inset 0 0 0 6px #6b4a2b, 0 18px 30px -16px rgba(0,0,0,.6); }
+  :root[data-cards="chalk"] .big .face { padding-left: 34px; }
+  :root[data-cards="chalk"] .mini .face { padding-left: 18px; box-shadow: inset 0 0 0 4px #6b4a2b; }
+  :root[data-cards="chalk"] .big .face small, :root[data-cards="chalk"] .mini .face small, :root[data-cards="chalk"] .big .flip-hint { color: #a9c2ae; }
+  :root[data-cards="chalk"] .big .q, :root[data-cards="chalk"] .mini .q { font-family: Caveat, cursive; font-size: clamp(27px, 3.4vw, 34px); }
+  :root[data-cards="chalk"] .mini .q { font-size: 21px; font-weight: 600; }
+  :root[data-cards="chalk"] .big .a, :root[data-cards="chalk"] .mini .a { color: #fff3a8; }
+
+  /* ---------- Belohnungen-Dialog ---------- */
+  #rewardsDialog { max-width: 640px; }
+  .rw-level { display: flex; align-items: center; gap: 14px; margin: 6px 0 18px; }
+  .rw-level .bar { flex: 1; }
+  .rw-level b { font: 700 26px Fraunces, Georgia, serif; }
+  .rw-level span { color: var(--muted); font-size: 14px; }
+  .rw-sec { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 10px; }
+  .rw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .rw { position: relative; text-align: left; border: 2px solid var(--line); background: var(--paper); border-radius: 14px; padding: 10px; cursor: pointer; }
+  .rw:hover:not(:disabled) { border-color: var(--ink); }
+  .rw.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .rw:disabled { cursor: default; }
+  .rw .pv { height: 58px; border-radius: 9px; margin-bottom: 8px; display: grid; place-items: center; font: 600 13px Inter, sans-serif; }
+  .rw b { display: block; font-size: 14px; }
+  .rw small { color: var(--muted); font-size: 12px; }
+  .rw:disabled .pv, .rw:disabled b { filter: grayscale(1); opacity: .45; }
+  .rw .lock { position: absolute; top: 14px; right: 14px; background: var(--ink); color: var(--paper); border-radius: 999px; font-size: 11px; font-weight: 700; padding: 2px 8px; }
+  .rw .new { position: absolute; top: 14px; right: 14px; background: var(--accent); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 2px 8px; }
+  .pv.lined { background-color: #fffdf8; background-image: linear-gradient(to right, transparent 14px, #e8a0a0 14px, #e8a0a0 15px, transparent 15px), repeating-linear-gradient(to bottom, transparent 0 11px, #c9dcea 11px 12px); color: #1f1b16; }
+  .pv.grid { background-color: #fffdf8; background-image: linear-gradient(#c9dcea 1px, transparent 1px), linear-gradient(90deg, #c9dcea 1px, transparent 1px); background-size: 10px 10px; color: #1f1b16; }
+  .pv.sticky { background: linear-gradient(135deg, #fde68a 50%, #fbcfe8 50%); color: #3b2f0b; }
+  .pv.chalk { background: #2b4535; box-shadow: inset 0 0 0 4px #6b4a2b; color: #eef4ec; font-family: Caveat, cursive; font-size: 19px; }
+  .next-reward { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .next-reward b { color: var(--ink); }
   .ring { width: 28px; height: 28px; transform: rotate(-90deg); }
   .ring circle { fill: none; stroke-width: 4; }
   .ring .bg { stroke: var(--paper-2); }
@@ -378,7 +440,7 @@
 <header>
   <a class="brand" href="../"><img src="../icons/icon-192.png" alt="">ClipCards</a>
   <span class="badge streak" id="streakBadge" title="Lernserie: Tage hintereinander gelernt"><span class="ic">🔥</span><span id="streakN">0</span><small>Tage</small></span>
-  <span class="badge level" id="levelBadge" title="Dein Level"><span class="lv"><svg class="ring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15"/><circle class="fg" id="levelRing" cx="18" cy="18" r="15" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg><b id="levelN">1</b></span><span id="xpN">0</span><small>XP</small></span>
+  <button class="badge level" id="levelBadge" title="Dein Level und Belohnungen"><span class="lv"><svg class="ring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15"/><circle class="fg" id="levelRing" cx="18" cy="18" r="15" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg><b id="levelN">1</b></span><span id="xpN">0</span><small>XP</small></button>
   <button id="installBtn" class="chip solid" hidden>App installieren</button>
   <button id="keyBtn" class="chip">API-Key</button>
 </header>
@@ -454,6 +516,13 @@
       <button type="submit" class="go">Speichern</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="rewardsDialog">
+  <h2 class="serif">Belohnungen</h2>
+  <p style="margin:0;color:var(--muted)">Mit jedem Level schaltest du neue Farben und Kartendesigns frei. XP gibt es für gewusste Karten, richtige Quizantworten und neue Videos.</p>
+  <div id="rewardsBody"></div>
+  <div class="row"><button type="button" class="go" id="rewardsClose">Fertig</button></div>
 </dialog>
 
 <div class="toast" id="toast"></div>

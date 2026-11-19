@@ -78,6 +78,69 @@ function addProgress(xp, cards = 0, anchor) {
   renderBadges(true);
   if (anchor && xp) xpPop(anchor, `+${xp} XP`);
 }
+// ---------- Belohnungen: Farben und Kartendesigns ----------
+const THEME_KEY = "clipcards.theme";
+const REWARDS = [
+  { type: "accent", id: "",         name: "Orange",      level: 1,  color: "#d9480f" },
+  { type: "cards",  id: "",         name: "Liniert",     level: 1,  pv: "lined",  sample: "Frage?" },
+  { type: "accent", id: "ocean",    name: "Ozean",       level: 2,  color: "#2563eb" },
+  { type: "cards",  id: "grid",     name: "Karopapier",  level: 3,  pv: "grid",   sample: "Frage?" },
+  { type: "accent", id: "forest",   name: "Wald",        level: 4,  color: "#2f7d4f" },
+  { type: "cards",  id: "sticky",   name: "Post-it",     level: 5,  pv: "sticky", sample: "Frage?" },
+  { type: "accent", id: "lavender", name: "Lavendel",    level: 6,  color: "#7c3aed" },
+  { type: "accent", id: "rose",     name: "Himbeere",    level: 8,  color: "#db2777" },
+  { type: "cards",  id: "chalk",    name: "Schultafel",  level: 10, pv: "chalk",  sample: "Frage?" },
+];
+function loadTheme() {
+  try { return { accent: "", cards: "", seenLevel: 1, ...JSON.parse(store(THEME_KEY) || "{}") }; } catch { return { accent: "", cards: "", seenLevel: 1 }; }
+}
+function saveTheme(t) { try { localStorage.setItem(THEME_KEY, JSON.stringify(t)); } catch {} }
+function applyTheme() {
+  const t = loadTheme();
+  const lv = levelOf(loadStats().xp);
+  const ok = (type, id) => !id || REWARDS.some((r) => r.type === type && r.id === id && r.level <= lv);
+  const root = document.documentElement;
+  if (t.accent && ok("accent", t.accent)) root.dataset.accent = t.accent; else delete root.dataset.accent;
+  if (t.cards && ok("cards", t.cards)) root.dataset.cards = t.cards; else delete root.dataset.cards;
+}
+const nextReward = (lv) => REWARDS.filter((r) => r.level > lv).sort((a, b) => a.level - b.level)[0];
+const newRewards = () => {
+  const lv = levelOf(loadStats().xp), seen = loadTheme().seenLevel;
+  return REWARDS.filter((r) => r.level > seen && r.level <= lv);
+};
+
+function openRewards() {
+  const s = loadStats();
+  const lv = levelOf(s.xp), from = xpForLevel(lv), to = xpForLevel(lv + 1);
+  const t = loadTheme();
+  const fresh = new Set(newRewards().map((r) => r.type + r.id));
+  const tile = (r) => {
+    const locked = r.level > lv;
+    const on = (r.type === "accent" ? t.accent : t.cards) === r.id;
+    const pv = r.type === "accent"
+      ? `<div class="pv" style="background:${r.color};color:#fff">Aa</div>`
+      : `<div class="pv ${r.pv}">${r.sample}</div>`;
+    return `<button class="rw ${on ? "on" : ""}" data-type="${r.type}" data-id="${r.id}" ${locked ? "disabled" : ""}>
+      ${pv}<b>${r.name}</b><small>${locked ? `ab Level ${r.level}` : on ? "Aktiv" : "Freigeschaltet"}</small>
+      ${locked ? `<span class="lock">🔒 ${r.level}</span>` : fresh.has(r.type + r.id) ? `<span class="new">Neu</span>` : ""}
+    </button>`;
+  };
+  $("#rewardsBody").innerHTML = `
+    <div class="rw-level"><b>Level ${lv}</b><div class="bar"><span style="width:${((s.xp - from) / (to - from)) * 100}%"></span></div><span>${s.xp} / ${to} XP</span></div>
+    <div class="rw-sec">Farbe</div><div class="rw-grid">${REWARDS.filter((r) => r.type === "accent").map(tile).join("")}</div>
+    <div class="rw-sec">Kartendesign</div><div class="rw-grid">${REWARDS.filter((r) => r.type === "cards").map(tile).join("")}</div>`;
+  $$("#rewardsBody .rw").forEach((b) => (b.onclick = () => {
+    const theme = loadTheme();
+    theme[b.dataset.type] = b.dataset.id;
+    saveTheme(theme);
+    applyTheme();
+    openRewards();
+  }));
+  saveTheme({ ...loadTheme(), seenLevel: Math.max(lv, t.seenLevel) });
+  renderBadges();
+  if (!$("#rewardsDialog").open) $("#rewardsDialog").showModal();
+}
+
 function renderBadges(animate) {
   const s = loadStats();
   const lv = levelOf(s.xp);
@@ -88,7 +151,11 @@ function renderBadges(animate) {
   $("#levelN").textContent = lv;
   $("#xpN").textContent = s.xp;
   $("#levelRing").style.strokeDashoffset = String(94.25 * (1 - (s.xp - from) / (to - from)));
-  $("#levelBadge").title = `Level ${lv} – noch ${to - s.xp} XP bis Level ${lv + 1}`;
+  const fresh = newRewards();
+  $("#levelBadge").classList.toggle("has-new", fresh.length > 0);
+  $("#levelBadge").title = fresh.length
+    ? `Neu freigeschaltet: ${fresh.map((r) => r.name).join(", ")} – klick zum Ansehen`
+    : `Level ${lv} – noch ${to - s.xp} XP bis Level ${lv + 1}. Klick für Belohnungen`;
   if (animate) { $("#levelBadge").classList.remove("bump"); void $("#levelBadge").offsetWidth; $("#levelBadge").classList.add("bump"); }
 }
 function xpPop(anchor, text) {
@@ -418,9 +485,10 @@ function renderHome() {
       <div class="stat" style="--tint:#2f7d4f"><small>Heute gelernt</small><div class="big-n">${today} <span style="font-size:18px;color:var(--muted)">/ ${DAILY_GOAL}</span></div>
         <div class="sub">${today >= DAILY_GOAL ? "Tagesziel erreicht 🎉" : `Noch ${DAILY_GOAL - today} Karten bis zum Tagesziel`}</div>
         <div class="meter"><span style="width:${Math.min(100, (today / DAILY_GOAL) * 100)}%"></span></div></div>
-      <div class="stat" style="--tint:#7c3aed"><small>Level</small><div class="big-n">${lv}</div>
+      <div class="stat" id="statLevel" style="--tint:#7c3aed;cursor:pointer" title="Belohnungen ansehen"><small>Level</small><div class="big-n">${lv}</div>
         <div class="sub">${s.xp} XP · noch ${to - s.xp} bis Level ${lv + 1}</div>
-        <div class="meter"><span style="width:${((s.xp - from) / (to - from)) * 100}%"></span></div></div>
+        <div class="meter"><span style="width:${((s.xp - from) / (to - from)) * 100}%"></span></div>
+        <div class="next-reward">${nextReward(lv) ? `Nächste Belohnung: <b>${nextReward(lv).name}</b> (Level ${nextReward(lv).level})` : "Alle Belohnungen freigeschaltet!"}</div></div>
       <div class="stat" style="--tint:#2563eb"><small>Deine Sammlung</small><div class="big-n">${cards}</div>
         <div class="sub">Karten aus ${videos.length} ${videos.length === 1 ? "Video" : "Videos"} · ${quizN} Quizfragen</div></div>
     </div>
@@ -442,6 +510,7 @@ function renderHome() {
       <span class="hand">Tipp: Leg dir links Fächer an, z. B. „Bio“ oder „Mathe“!</span>
     </div>`}`;
   $$(".tile").forEach((b) => (b.onclick = () => showVideo(b.dataset.id)));
+  $("#statLevel").onclick = openRewards;
   $("#actContinue") && ($("#actContinue").onclick = () => showVideo(last.id));
   $("#actHard") && ($("#actHard").onclick = () => showPractice("hard"));
   $("#actMix") && ($("#actMix").onclick = () => showPractice("quiz"));
@@ -1028,8 +1097,11 @@ $("#installBtn").onclick = async () => {
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
 
 // ---------- Start ----------
+applyTheme();
 renderBadges();
 renderHome();
+$("#levelBadge").onclick = openRewards;
+$("#rewardsClose").onclick = () => $("#rewardsDialog").close();
 
 // Link von der Startseite übernehmen (…/app/?url=…)
 const incomingUrl = new URLSearchParams(location.search).get("url");
