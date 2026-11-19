@@ -20,6 +20,11 @@ ClipCards lässt Google Gemini ein YouTube-Video ansehen und macht daraus eine k
 - **Export für Anki und Quizlet** (Tab-getrennte Textdatei)
 - Gespeicherte Videos durchsuchen (Titel, Zusammenfassung, Karten)
 - Tastatur-Steuerung: Leertaste umdrehen, 1/2 bewerten, A–D im Quiz
+- **Wiederholung nach Plan:** Karten kommen nach 1, 3, 7, 14 und 30 Tagen wieder („Heute fällig“)
+- **Prüfungsmodus:** Prüfungsdatum pro Fach, mit Countdown, Lernstand und Tagesempfehlung
+- **Sprung zur Videostelle:** Jede Karte verlinkt ungefähr zu der Stelle im Video, an der der Inhalt erklärt wird
+- **Teilen per Link:** Video oder ganzes Fach als Link verschicken. Die Karten stecken komprimiert im Link, ganz ohne Server
+- **Vorlesen** von Karten und Zusammenfassung
 - **Übersicht** mit Lernserie, Tagesziel, Level und Schnellstart
 - **Belohnungen:** XP sammeln und mit jedem Level neue Farben (Ozean, Wald, Lavendel, Himbeere) und Kartendesigns (Karopapier, Post-it, Schultafel) freischalten
 - Sichern und Wiederherstellen als JSON-Datei
