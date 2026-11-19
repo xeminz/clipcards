@@ -675,7 +675,7 @@ async function makeQuizzes(videos) {
 
 // ---------- Tastatur ----------
 document.addEventListener("keydown", (e) => {
-  if (e.target.closest("input, textarea, select, dialog") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest?.("input, textarea, select, dialog") || e.ctrlKey || e.metaKey || e.altKey) return;
   if (tab === "learn" && session && $("#big")) {
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); }
     else if (e.key === "1" || e.key === "ArrowLeft") grade(false);

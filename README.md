@@ -12,8 +12,14 @@ ClipCards lässt Google Gemini ein YouTube-Video ansehen und macht daraus eine k
 - YouTube-Link einfügen (normale Links, `youtu.be`, Shorts)
 - KI schaut sich das Video direkt an, Untertitel sind nicht nötig
 - Zusammenfassung + 5–10 Lernkarten auf Deutsch, auch bei englischen Videos
-- Karten zum Umdrehen, mit Mischen-Funktion
+- **Lernmodus:** Karte für Karte umdrehen, „Gewusst“ oder „Nochmal“ wählen, mit Fortschritt und Ergebnis
+- **Schwierige Karten:** Nicht gewusste Karten werden markiert und lassen sich gezielt üben
+- **Quiz:** Multiple-Choice-Fragen mit Erklärung zu jedem Video
+- **Fächer:** Videos in farbige Ordner sortieren, ein ganzes Fach lernen oder abfragen
+- **Karten bearbeiten:** Karten ändern, löschen oder eigene hinzufügen
+- **Export für Anki und Quizlet** (Tab-getrennte Textdatei)
 - Gespeicherte Videos durchsuchen (Titel, Zusammenfassung, Karten)
+- Tastatur-Steuerung: Leertaste umdrehen, 1/2 bewerten, A–D im Quiz
 - Sichern und Wiederherstellen als JSON-Datei
 - Als App installierbar (PWA) auf Windows, Mac, Linux, Android und iPhone, startet auch offline
 
