@@ -1,5 +1,5 @@
 // Service Worker: hält die App-Dateien offline bereit. KI-Anfragen gehen immer direkt ins Netz.
-const CACHE = "clipcards-v2";
+const CACHE = "clipcards-v3";
 const SHELL = [
   "./",
   "./app/",
