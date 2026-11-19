@@ -162,70 +162,199 @@ async function generateCards(videoUrl) {
 }
 
 // ---------- Oberfläche ----------
+const thumb = (videoId) => `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`;
+let session = null; // Lernmodus: { videoId, queue, known, firstTry, total, flipped }
+let tab = "learn";
+
+function toast(text) {
+  const el = $("#toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
 function renderList() {
+  const all = loadVideos();
   const q = $("#search").value.trim().toLowerCase();
-  const videos = loadVideos()
+  const videos = all
     .filter((v) => !q || [v.title, v.channel, v.summary, ...v.cards.flatMap((c) => [c.question, c.answer])]
       .some((t) => (t || "").toLowerCase().includes(q)))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  $("#count").textContent = all.length ? `${all.length} ${all.length === 1 ? "Video" : "Videos"}` : "";
   $("#list").innerHTML = videos.length
     ? videos.map((v) => `
         <button class="item ${v.id === activeId ? "active" : ""}" data-id="${esc(v.id)}">
-          <b>${esc(v.title || v.videoId)}</b>
-          <small>${esc(v.channel || "")}${v.channel ? " · " : ""}${v.cards.length} Karten</small>
+          <img src="${thumb(v.videoId)}" alt="" loading="lazy">
+          <span><b>${esc(v.title || v.videoId)}</b><small>${v.cards.length} Karten${v.channel ? " · " + esc(v.channel) : ""}</small></span>
         </button>`).join("")
-    : `<div class="empty">${q ? "Nichts gefunden." : "Noch keine Videos gespeichert."}</div>`;
+    : `<div class="lib-empty">${q ? "Nichts gefunden." : "Hier landen deine Videos."}</div>`;
 }
 
-function showVideo(id) {
-  const v = loadVideos().find((x) => x.id === id);
-  if (!v) return;
-  activeId = id;
-  const paras = v.summary.split(/\n\s*\n/).map((p) => `<p>${esc(p)}</p>`).join("");
-  $("#detail").innerHTML = `
-    <h2>${esc(v.title || v.videoId)}</h2>
-    <div class="meta">${esc(v.channel || "")}${v.channel ? " · " : ""}<a href="${esc(v.url)}" target="_blank" rel="noopener">auf YouTube ansehen</a></div>
-    <div class="summary">${paras}</div>
-    <div class="tools">
-      <h3>Lernkarten (${v.cards.length})</h3>
-      <button class="ghost small" id="shuffle">Mischen</button>
-      <button class="ghost small" id="reset">Alle umdrehen</button>
-      <button class="danger small" id="del">Löschen</button>
-    </div>
-    <div class="cards" id="cards"></div>
-    <div class="hint">Tipp: Klick auf eine Karte dreht sie um.</div>`;
-  renderCards(v.cards);
-  $("#shuffle").onclick = () => renderCards([...v.cards].sort(() => Math.random() - 0.5));
-  $("#reset").onclick = () => document.querySelectorAll(".card").forEach((c) => c.classList.remove("flipped"));
-  $("#del").onclick = () => {
-    if (!confirm("Dieses Video samt Karten löschen?")) return;
-    saveVideos(loadVideos().filter((x) => x.id !== id));
-    activeId = null;
-    $("#detail").innerHTML = `<div class="placeholder">Gelöscht.</div>`;
-    renderList();
-  };
+function renderEmpty() {
+  activeId = null;
+  session = null;
+  $("#view").innerHTML = `
+    <div class="empty">
+      <div class="fan"><i></i><i></i><i></i></div>
+      <h2 class="serif">Noch keine Karten in Sicht.</h2>
+      <p>Kopier einen Link von YouTube, füg ihn oben ein und klick auf „Karten machen“. Ein paar Sekunden später kannst du loslernen.</p>
+      <span class="hand">Tipp: Erklärvideos funktionieren am besten!</span>
+    </div>`;
   renderList();
 }
 
-function renderCards(cards) {
-  $("#cards").innerHTML = cards.map((c, i) => `
-    <div class="card">
-      <div class="card-inner">
-        <div class="face front"><div class="label">Frage ${i + 1}</div><div class="txt">${esc(c.question)}</div></div>
-        <div class="face back"><div class="label">Antwort</div><div class="txt">${esc(c.answer)}</div></div>
-      </div>
-    </div>`).join("");
-  document.querySelectorAll(".card").forEach((el) => (el.onclick = () => el.classList.toggle("flipped")));
+const LOADING_LINES = [
+  "Die KI schaut sich das Video an …",
+  "Sie sucht die wichtigsten Punkte heraus …",
+  "Sie schreibt die Fragen …",
+  "Und die Antworten auf die Rückseite …",
+];
+function renderLoading() {
+  let i = 0;
+  $("#view").innerHTML = `
+    <div class="loading">
+      <div class="shuffle"><i></i><i></i><i></i></div>
+      <h2 class="serif" id="loadLine">${LOADING_LINES[0]}</h2>
+      <p>Dauert meist 10–40 Sekunden.</p>
+    </div>`;
+  const timer = setInterval(() => {
+    const el = $("#loadLine");
+    if (!el) return clearInterval(timer);
+    i = Math.min(i + 1, LOADING_LINES.length - 1);
+    el.textContent = LOADING_LINES[i];
+  }, 5000);
 }
+
+function showVideo(id, keepTab) {
+  const v = loadVideos().find((x) => x.id === id);
+  if (!v) return renderEmpty();
+  if (activeId !== id) session = null;
+  activeId = id;
+  if (!keepTab) tab = "learn";
+  const paras = v.summary.split(/\n\s*\n/).map((p) => `<p>${esc(p)}</p>`).join("");
+  $("#view").innerHTML = `
+    <div class="video-head">
+      <a class="thumb" href="${esc(v.url)}" target="_blank" rel="noopener" title="Auf YouTube ansehen"><img src="${thumb(v.videoId)}" alt=""></a>
+      <div>
+        <h2 class="serif">${esc(v.title || v.videoId)}</h2>
+        <div class="meta">${v.channel ? esc(v.channel) + " · " : ""}${v.cards.length} Karten · ${new Date(v.createdAt).toLocaleDateString("de")}</div>
+        <div class="actions">
+          <a class="chip" href="${esc(v.url)}" target="_blank" rel="noopener" style="text-decoration:none">Video ansehen</a>
+          <button class="chip danger" id="del">Löschen</button>
+        </div>
+      </div>
+    </div>
+    <div class="summary"><span class="tag">Zusammenfassung</span>${paras}</div>
+    <div class="tabs">
+      <h3 class="serif">Lernkarten</h3>
+      <button class="tab ${tab === "learn" ? "on" : ""}" data-tab="learn">Lernen</button>
+      <button class="tab ${tab === "all" ? "on" : ""}" data-tab="all">Alle Karten</button>
+    </div>
+    <div id="cardsArea"></div>`;
+  $("#del").onclick = () => {
+    if (!confirm("Dieses Video samt Karten löschen?")) return;
+    saveVideos(loadVideos().filter((x) => x.id !== id));
+    toast("Gelöscht");
+    renderEmpty();
+  };
+  document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => { tab = b.dataset.tab; showVideo(id, true); }));
+  if (tab === "learn") renderLearn(v); else renderAll(v);
+  renderList();
+}
+
+function renderAll(v) {
+  $("#cardsArea").innerHTML = `<div class="grid">${v.cards.map((c, i) => `
+    <div class="mini"><div class="in">
+      <div class="face front"><small>Karte ${i + 1}</small><div class="q">${esc(c.question)}</div></div>
+      <div class="face back"><small>Antwort</small><div class="a">${esc(c.answer)}</div></div>
+    </div></div>`).join("")}</div>`;
+  document.querySelectorAll(".mini").forEach((el) => (el.onclick = () => el.classList.toggle("flip")));
+}
+
+function startSession(v) {
+  const order = v.cards.map((_, i) => i).sort(() => Math.random() - 0.5);
+  session = { videoId: v.id, queue: order, known: 0, firstTry: 0, missed: new Set(), total: v.cards.length, flipped: false };
+}
+
+function renderLearn(v) {
+  if (!session || session.videoId !== v.id) startSession(v);
+  const s = session;
+  if (s.queue.length === 0) {
+    const pct = Math.round((s.firstTry / s.total) * 100);
+    const praise = pct === 100 ? "Perfekt, alles gewusst!" : pct >= 70 ? "Stark, fast alles drin!" : pct >= 40 ? "Guter Anfang, nochmal?" : "Übung macht den Meister!";
+    $("#cardsArea").innerHTML = `
+      <div class="done">
+        <span class="hand">${praise}</span>
+        <div class="score serif">${s.firstTry} / ${s.total}</div>
+        <p>beim ersten Versuch gewusst</p>
+        <div class="grade"><button class="yes" id="again">Nochmal lernen</button><button id="showAll">Alle Karten ansehen</button></div>
+      </div>`;
+    $("#again").onclick = () => { startSession(v); renderLearn(v); };
+    $("#showAll").onclick = () => { tab = "all"; showVideo(v.id, true); };
+    return;
+  }
+  const card = v.cards[s.queue[0]];
+  $("#cardsArea").innerHTML = `
+    <div class="learn">
+      <div class="progress"><span>${s.known} / ${s.total} gewusst</span><div class="bar"><span style="width:${(s.known / s.total) * 100}%"></span></div><span>${s.queue.length} übrig</span></div>
+      <div class="big ${s.flipped ? "flip" : ""}" id="big" tabindex="0" role="button" aria-label="Karte umdrehen">
+        <div class="in">
+          <div class="face front"><small>Frage</small><div class="q">${esc(card.question)}</div><div class="flip-hint">Klicken zum Umdrehen</div></div>
+          <div class="face back"><small>Antwort</small><div class="a">${esc(card.answer)}</div><div class="flip-hint">Und, wusstest du's?</div></div>
+        </div>
+      </div>
+      <div class="grade ${s.flipped ? "" : "wait"}">
+        <button class="no" id="no">Nochmal</button>
+        <button class="yes" id="yes">Gewusst</button>
+      </div>
+      <div class="keys"><kbd>Leertaste</kbd> umdrehen · <kbd>1</kbd> nochmal · <kbd>2</kbd> gewusst</div>
+    </div>`;
+  $("#big").onclick = () => flip();
+  $("#no").onclick = () => grade(false);
+  $("#yes").onclick = () => grade(true);
+}
+
+function flip() {
+  if (!session || tab !== "learn" || !$("#big")) return;
+  session.flipped = !session.flipped;
+  $("#big").classList.toggle("flip", session.flipped);
+  document.querySelector(".grade").classList.toggle("wait", !session.flipped);
+}
+
+function grade(knew) {
+  const s = session;
+  if (!s || !s.flipped || !s.queue.length) return;
+  const idx = s.queue.shift();
+  if (knew) {
+    s.known++;
+    if (!s.missed.has(idx)) s.firstTry++;
+  } else {
+    s.missed.add(idx);
+    s.queue.push(idx);
+  }
+  s.flipped = false;
+  const v = loadVideos().find((x) => x.id === s.videoId);
+  if (v) renderLearn(v);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, dialog") || tab !== "learn" || !session) return;
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); }
+  else if (e.key === "1" || e.key === "ArrowLeft") grade(false);
+  else if (e.key === "2" || e.key === "ArrowRight") grade(true);
+});
 
 $("#add").onsubmit = async (e) => {
   e.preventDefault();
   const btn = $("#addBtn"), st = $("#status");
-  btn.disabled = true; st.className = "status";
+  st.textContent = "";
+  const videoId = extractVideoId($("#url").value);
+  if (!videoId) { st.textContent = "Das sieht nicht nach einem YouTube-Link aus."; return; }
+  btn.disabled = true;
+  const previous = activeId;
+  renderLoading();
   try {
-    const videoId = extractVideoId($("#url").value);
-    if (!videoId) throw new UserError("Das sieht nicht nach einem YouTube-Link aus.");
-    st.textContent = "Die KI schaut sich das Video an… (dauert meist 10–60 Sekunden)";
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     const [meta, result] = await Promise.all([fetchMeta(videoId), generateCards(url)]);
     const video = {
@@ -238,13 +367,13 @@ $("#add").onsubmit = async (e) => {
       createdAt: new Date().toISOString(),
     };
     saveVideos([video, ...loadVideos().filter((v) => v.videoId !== videoId)]);
-    st.textContent = "Fertig!";
     $("#url").value = "";
     $("#search").value = "";
+    toast(`${video.cards.length} Karten erstellt`);
     showVideo(video.id);
   } catch (err) {
-    st.className = "status err";
     st.textContent = err instanceof UserError ? err.message : "Unerwarteter Fehler: " + err.message;
+    if (previous) showVideo(previous, true); else renderEmpty();
   } finally {
     btn.disabled = false;
   }
@@ -262,7 +391,7 @@ $("#keyBtn").onclick = openKeyDialog;
 $("#keyCancel").onclick = () => $("#keyDialog").close();
 $("#keyForm").onsubmit = () => {
   const k = $("#keyInput").value.trim();
-  if (k) store(API_KEY, k);
+  if (k) { store(API_KEY, k); toast("Key gespeichert"); }
 };
 
 // ---------- Sichern / Wiederherstellen ----------
@@ -273,6 +402,7 @@ $("#exportBtn").onclick = () => {
   a.download = `clipcards-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
+  toast("Sicherung heruntergeladen");
 };
 $("#importBtn").onclick = () => $("#importFile").click();
 $("#importFile").onchange = async () => {
@@ -285,9 +415,9 @@ $("#importFile").onchange = async () => {
     for (const v of incoming) if (v && v.videoId && Array.isArray(v.cards)) byVideo.set(v.videoId, v);
     saveVideos([...byVideo.values()]);
     renderList();
-    alert(`${incoming.length} Videos wiederhergestellt.`);
+    toast(`${incoming.length} Videos wiederhergestellt`);
   } catch {
-    alert("Diese Datei ist keine gültige ClipCards-Sicherung.");
+    toast("Keine gültige ClipCards-Sicherung");
   }
   $("#importFile").value = "";
 };
@@ -308,7 +438,9 @@ $("#installBtn").onclick = async () => {
 };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
 
-renderList();
+// ---------- Start ----------
+const newest = loadVideos().sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+if (newest) showVideo(newest.id); else renderEmpty();
 
 // Link von der Startseite übernehmen (…/app/?url=…)
 const incomingUrl = new URLSearchParams(location.search).get("url");
@@ -320,6 +452,10 @@ if (!store(API_KEY)) openKeyDialog();
 else if (incomingUrl) $("#add").requestSubmit();
 
 // Nach dem Speichern des Keys einen wartenden Link direkt verarbeiten
+let pendingFromLanding = Boolean(incomingUrl);
 $("#keyDialog").addEventListener("close", () => {
-  if (store(API_KEY) && $("#url").value.trim() && !$("#addBtn").disabled && !activeId) $("#add").requestSubmit();
+  if (pendingFromLanding && store(API_KEY) && $("#url").value.trim()) {
+    pendingFromLanding = false;
+    $("#add").requestSubmit();
+  }
 });
