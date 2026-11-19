@@ -78,20 +78,23 @@
   .ix small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); line-height: 22px; }
   .ix p { margin: 0; font-size: 17px; line-height: 32px; }
   .ix .hand { font-size: 26px; line-height: 32px; color: var(--ink); }
-  .ix.a { transform: translateX(-112%) rotate(-7deg); }
-  .ix.b { transform: translateX(12%) rotate(6deg); }
+  .ix.a { transform: translateX(-128%) rotate(-7deg); }
+  .ix.b { transform: translateX(28%) rotate(6deg); }
   .ix.c { transform: translateX(-50%) rotate(-1deg); top: 50px; cursor: pointer; z-index: 2; }
   .ix.c:hover { transform: translateX(-50%) rotate(-1deg) translateY(-6px); }
   .ix .ans { display: none; }
   .ix.c.show .q { display: none; }
   .ix.c.show .ans { display: block; }
-  .note { position: absolute; right: 2%; top: 250px; font-size: 24px; transform: rotate(-4deg); z-index: 3; }
+  .note { position: absolute; left: calc(50% + 110px); top: 282px; font-size: 24px; transform: rotate(-4deg); z-index: 3; white-space: nowrap; }
   .note svg { width: 46px; height: 40px; vertical-align: -6px; margin-left: 4px; }
-  @media (max-width: 760px) {
+  @media (max-width: 1000px) {
     .ix.a, .ix.b { display: none; }
-    .stack { height: 300px; }
-    .note { right: 4%; top: 262px; }
+    .stack { height: 320px; }
   }
+  @media (max-width: 560px) {
+    .note { left: auto; right: 4%; top: 285px; }
+  }
+  .hero { overflow-x: clip; }
 
   /* ---------- Sections ---------- */
   section { padding: 96px 0; }
