@@ -2,57 +2,57 @@
 
 **YouTube-Video rein, Zusammenfassung und Lernkarten raus.**
 
-ClipCards holt das Transkript eines YouTube-Videos, lässt von Google Gemini eine kurze Zusammenfassung und 5–10 Lernkarten erstellen und speichert alles lokal. So kannst du deine Videos samt Karten später durchsuchen und wiederholen.
+👉 **Website:** https://xeminz.github.io/clipcards/
+👉 **App direkt im Browser:** https://xeminz.github.io/clipcards/app/
+
+ClipCards lässt Google Gemini ein YouTube-Video ansehen und macht daraus eine kurze Zusammenfassung und 5–10 Lernkarten, immer auf Deutsch. Alles läuft im Browser: Es gibt keine Anmeldung und keinen Server, und deine Karten bleiben auf deinem Gerät.
 
 ## Funktionen
 
 - YouTube-Link einfügen (normale Links, `youtu.be`, Shorts)
-- Transkript wird automatisch geladen (bevorzugt Deutsch, sonst Englisch)
-- KI erstellt eine Zusammenfassung und 5–10 Lernkarten, immer auf Deutsch
-- Karten zum Umdrehen per Klick, mit Mischen-Funktion
-- Alle Videos werden gespeichert und sind durchsuchbar (Titel, Kanal, Zusammenfassung, Transkript, Karten)
-- Heller und dunkler Modus
+- KI schaut sich das Video direkt an, Untertitel sind nicht nötig
+- Zusammenfassung + 5–10 Lernkarten auf Deutsch, auch bei englischen Videos
+- Karten zum Umdrehen, mit Mischen-Funktion
+- Gespeicherte Videos durchsuchen (Titel, Zusammenfassung, Karten)
+- Sichern und Wiederherstellen als JSON-Datei
+- Als App installierbar (PWA) auf Windows, Mac, Linux, Android und iPhone, startet auch offline
 
-## Voraussetzungen
+## Nutzung
 
-- [Node.js](https://nodejs.org) ab Version 22.9
-- Ein kostenloser Gemini-API-Key von [Google AI Studio](https://aistudio.google.com/apikey)
+1. [App öffnen](https://xeminz.github.io/clipcards/app/)
+2. Beim ersten Start einen **kostenlosen** Gemini-API-Key eintragen ([hier erstellen](https://aistudio.google.com/apikey))
+3. YouTube-Link einfügen und auf „Los“ klicken
 
-## Installation
+Der Key wird nur im eigenen Browser gespeichert und geht ausschließlich an Google.
 
-```bash
-git clone https://github.com/xeminz/clipcards.git
-cd clipcards
-npm install
-```
+## Installieren
 
-Lege eine Datei `.env` an (Vorlage: `.env.example`) und trage deinen Key ein:
+Auf der [Website](https://xeminz.github.io/clipcards/) auf **„App laden“** klicken. Alternativ:
 
-```
-GEMINI_API_KEY=dein-key
-```
-
-## Starten
-
-```bash
-npm start
-```
-
-Danach im Browser öffnen: http://localhost:3000
+- **Chrome / Edge (Windows, Mac, Linux, Android):** Installieren-Symbol in der Adressleiste
+- **iPhone / iPad:** in Safari „Teilen“ → „Zum Home-Bildschirm“
 
 ## Aufbau
 
 | Datei | Inhalt |
 |---|---|
-| `server.js` | Node-Server: Transkript holen, Gemini aufrufen, in SQLite speichern |
-| `public/index.html` | Oberfläche: Eingabe, Liste, Suche, Lernkarten |
-| `clipcards.db` | Deine gespeicherten Videos und Karten (wird automatisch angelegt, nicht im Repo) |
+| `index.html` | Website mit Download-Bereich |
+| `app/index.html`, `app/app.js` | Die App: Gemini-Aufruf, Speicher im Browser, Lernkarten |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Installierbare App (PWA) und Offline-Start |
+| `dev-server.mjs` | Lokale Vorschau ohne Abhängigkeiten |
 
-Technik: Node.js mit eingebautem `node:sqlite`, [`@google/genai`](https://www.npmjs.com/package/@google/genai), [`youtube-transcript`](https://www.npmjs.com/package/youtube-transcript) und [`zod`](https://zod.dev).
+Reines HTML/CSS/JavaScript ohne Build-Schritt und ohne Abhängigkeiten. Gehostet über GitHub Pages.
+
+## Lokal ausprobieren
+
+```bash
+node dev-server.mjs
+```
+
+Danach http://localhost:5173/clipcards/ öffnen.
 
 ## Hinweise
 
-- Es funktioniert nur bei Videos mit Untertiteln (automatisch erzeugte reichen).
-- Das Gratis-Kontingent von Gemini ist pro Tag begrenzt. Ist es erreicht, zeigt die App eine Meldung an.
-- Das Modell kann über `GEMINI_MODEL` in der `.env` geändert werden.
-- Die `.env`-Datei mit deinem Key wird nie ins Repo hochgeladen (steht in `.gitignore`).
+- Das Video muss öffentlich sein.
+- Das Gratis-Kontingent von Gemini ist pro Tag begrenzt. Sehr lange Videos (über ca. 30 Minuten) können es sprengen.
+- Die Karten liegen im Browser-Speicher. Mit „Sichern“ kannst du sie als Datei exportieren und auf einem anderen Gerät wiederherstellen.

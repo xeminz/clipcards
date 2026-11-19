@@ -1,3 +1,4 @@
 node_modules/
 .env
 clipcards.db
+.claude/

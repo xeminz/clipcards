@@ -1,0 +1,17 @@
+{
+  "name": "ClipCards",
+  "short_name": "ClipCards",
+  "description": "YouTube-Video rein, Zusammenfassung und Lernkarten raus.",
+  "lang": "de",
+  "id": "./app/",
+  "start_url": "./app/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f5f2",
+  "theme_color": "#d9480f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

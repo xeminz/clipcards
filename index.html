@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipCards – Aus YouTube-Videos werden Lernkarten</title>
+<meta name="description" content="Füge einen YouTube-Link ein und bekomme in Sekunden eine Zusammenfassung und Lernkarten. Gratis, ohne Anmeldung, direkt im Browser oder als App.">
+<meta name="theme-color" content="#d9480f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta property="og:title" content="ClipCards">
+<meta property="og:description" content="YouTube-Video rein, Zusammenfassung und Lernkarten raus.">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #d9480f; --brand-deep: #b23a0b; --brand-soft: #ffd6c2;
+    --ink: #1d1d1f; --muted: #5f5f66; --bg: #faf8f5; --panel: #ffffff; --line: #ebe7e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --ink: #ececee; --muted: #a3a3ab; --bg: #141416; --panel: #1e1e21; --line: #2e2e33; }
+  }
+  :root[data-theme="dark"] { --ink: #ececee; --muted: #a3a3ab; --bg: #141416; --panel: #1e1e21; --line: #2e2e33; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 Inter, system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+  .display { font-family: "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -0.03em; }
+
+  /* ---------- Hero ---------- */
+  .hero { position: relative; overflow: hidden; color: #fff;
+          background: radial-gradient(1200px 600px at 80% 20%, #f06a2a 0%, transparent 60%), linear-gradient(160deg, #d9480f, #a63609); }
+  .hero::before { content: ""; position: absolute; inset: 0; opacity: .12; pointer-events: none;
+                  background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px);
+                  background-size: 28px 28px; }
+  nav { position: relative; display: flex; align-items: center; gap: 24px; padding: 20px 0; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; text-decoration: none; margin-right: auto; }
+  .logo img { width: 34px; height: 34px; border-radius: 9px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  nav .links a { text-decoration: none; font-weight: 500; opacity: .92; margin-left: 22px; }
+  nav .links a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
+  @media (max-width: 860px) { nav .links { display: none; } }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 12px; font: 600 17px Inter, sans-serif;
+         text-decoration: none; cursor: pointer; border: 0; transition: transform .15s, box-shadow .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn svg { width: 20px; height: 20px; }
+  .btn-white { background: #fff; color: var(--brand-deep); box-shadow: 0 4px 0 rgba(0,0,0,.18); }
+  .btn-outline { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.6); }
+  .btn-sm { padding: 10px 16px; font-size: 15px; }
+  .hero-grid { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; padding: 48px 0 90px; }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; padding-top: 24px; } }
+  .pill { display: inline-block; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.45);
+          background: rgba(255,255,255,.12); font-weight: 600; font-size: 14px; }
+  h1 { font-size: clamp(44px, 7vw, 84px); line-height: .98; margin: 22px 0 22px; font-weight: 800; }
+  .lead { font-size: 20px; max-width: 520px; opacity: .95; margin: 0 0 30px; }
+  .cta { display: flex; gap: 14px; flex-wrap: wrap; }
+  .fine { margin-top: 18px; font-size: 14px; opacity: .85; max-width: 480px; }
+
+  /* Mock-up */
+  .mock { position: relative; }
+  .mock-window { background: #fff; color: #1d1d1f; border-radius: 16px; box-shadow: 0 30px 60px rgba(60,15,0,.35); overflow: hidden; }
+  .mock-bar { display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid #eee; font-size: 14px; color: #888; }
+  .mock-bar i { width: 10px; height: 10px; border-radius: 50%; background: #e5e1da; }
+  .mock-bar span { margin-left: 10px; background: #f4f2ee; padding: 4px 12px; border-radius: 6px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mock-body { padding: 18px; display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  .mcard { perspective: 900px; height: 130px; cursor: pointer; }
+  .mcard .in { position: relative; height: 100%; transition: transform .5s; transform-style: preserve-3d; }
+  .mcard.flip .in { transform: rotateY(180deg); }
+  .mcard .f { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 12px; padding: 12px; font-size: 14px; border: 1px solid #ebe7e0; }
+  .mcard .f b { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #999; margin-bottom: 4px; }
+  .mcard .front { background: #fff; font-weight: 600; }
+  .mcard .back { background: #fff0e8; border-color: var(--brand); transform: rotateY(180deg); }
+  .mock-sum { grid-column: 1 / -1; font-size: 14px; color: #555; background: #faf8f5; border-radius: 10px; padding: 12px; }
+  .mock-sum b { color: #1d1d1f; }
+  .float { position: absolute; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3);
+           font: 600 14px Inter, sans-serif; color: #fff; }
+  @media (prefers-reduced-motion: no-preference) { .float { animation: bob 6s ease-in-out infinite; } }
+  @keyframes bob { 50% { transform: translateY(-10px); } }
+
+  /* ---------- Sections ---------- */
+  section { padding: 90px 0; }
+  .kicker { color: var(--brand); font-weight: 700; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+  h2 { font-size: clamp(32px, 4.5vw, 52px); line-height: 1.05; margin: 10px 0 18px; font-weight: 800; }
+  .sub { color: var(--muted); font-size: 19px; max-width: 640px; margin: 0; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; }
+  @media (max-width: 860px) { .grid3 { grid-template-columns: 1fr; } }
+  .feat { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 26px; }
+  .feat .ic { width: 46px; height: 46px; border-radius: 12px; background: #fff0e8; color: var(--brand); display: grid; place-items: center; margin-bottom: 16px; }
+  .feat .ic svg { width: 24px; height: 24px; }
+  .feat h3 { margin: 0 0 6px; font-size: 21px; }
+  .feat p { margin: 0; color: var(--muted); font-size: 16px; }
+  .steps { counter-reset: s; }
+  .step { position: relative; padding-left: 64px; }
+  .step::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 50%;
+                  background: var(--brand); color: #fff; display: grid; place-items: center; font: 800 20px "Bricolage Grotesque", sans-serif; }
+  .step h3 { margin: 6px 0 6px; font-size: 20px; }
+  .step p { margin: 0; color: var(--muted); font-size: 16px; }
+
+  .download { background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  @media (max-width: 860px) { .dl-grid { grid-template-columns: 1fr; } }
+  .platforms { display: grid; gap: 12px; }
+  .plat { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: var(--bg); }
+  .plat b { display: block; margin-bottom: 2px; }
+  .plat span { color: var(--muted); font-size: 15px; }
+  .btn-brand { background: var(--brand); color: #fff; box-shadow: 0 4px 0 var(--brand-deep); }
+  .btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .dl-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  .msg { margin-top: 14px; font-size: 15px; color: var(--brand); min-height: 1.4em; }
+
+  footer { padding: 36px 0; color: var(--muted); font-size: 15px; }
+  footer .wrap { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  footer a { color: var(--ink); }
+  footer .sp { margin-right: auto; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <nav>
+      <a class="logo display" href="./"><img src="icons/icon-192.png" alt="">ClipCards</a>
+      <div class="links">
+        <a href="#funktionen">Funktionen</a>
+        <a href="#so-gehts">So geht's</a>
+        <a href="app/">Im Browser öffnen</a>
+      </div>
+      <a class="btn btn-white btn-sm" href="#download">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+        Download
+      </a>
+    </nav>
+
+    <div class="hero-grid">
+      <div>
+        <span class="pill">Für Schule, Uni und alle, die mit Videos lernen</span>
+        <h1 class="display">Aus jedem Video werden Lernkarten.</h1>
+        <p class="lead">Füg einen YouTube-Link ein. ClipCards schaut sich das Video an, fasst es zusammen und macht dir 5–10 Lernkarten daraus. Auf Deutsch, auch bei englischen Videos.</p>
+        <div class="cta">
+          <button class="btn btn-white" data-install>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+            App laden
+          </button>
+          <a class="btn btn-outline" href="app/">Im Browser öffnen</a>
+        </div>
+        <p class="fine">Gratis und ohne Anmeldung, für Windows, Mac, Linux, Android und iPhone. Deine Karten bleiben auf deinem Gerät.</p>
+      </div>
+
+      <div class="mock" aria-hidden="true">
+        <span class="float" style="top:-28px;left:8%">5–10 Karten</span>
+        <span class="float" style="bottom:-24px;right:6%;animation-delay:-3s">in ~20 Sekunden</span>
+        <div class="mock-window">
+          <div class="mock-bar"><i></i><i></i><i></i><span>youtube.com/watch?v=aircAruvnKk</span></div>
+          <div class="mock-body">
+            <div class="mock-sum"><b>Was ist ein neuronales Netz?</b><br>Ein neuronales Netz besteht aus Schichten von Neuronen, die jeweils eine Zahl zwischen 0 und 1 tragen …</div>
+            <div class="mcard"><div class="in">
+              <div class="f front"><b>Frage 1</b>Was speichert ein einzelnes Neuron?</div>
+              <div class="f back"><b>Antwort</b>Eine Zahl zwischen 0 und 1, die Aktivierung.</div>
+            </div></div>
+            <div class="mcard flip"><div class="in">
+              <div class="f front"><b>Frage 2</b>Wozu dienen Gewichte?</div>
+              <div class="f back"><b>Antwort</b>Sie bestimmen, wie stark ein Neuron das nächste beeinflusst.</div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="funktionen">
+    <div class="wrap">
+      <div class="kicker">Funktionen</div>
+      <h2 class="display">Weniger abschreiben,<br>mehr verstehen.</h2>
+      <p class="sub">ClipCards nimmt dir die Vorarbeit ab, damit du direkt mit dem Lernen anfangen kannst.</p>
+      <div class="grid3">
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg></div>
+          <h3>Versteht jedes Video</h3>
+          <p>Die KI schaut sich das Video selbst an. Untertitel braucht es nicht, und englische Videos werden auf Deutsch zusammengefasst.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="13" height="16" rx="2"/><path d="M4 7v12a2 2 0 0 0 2 2h10"/></svg></div>
+          <h3>Karten zum Umdrehen</h3>
+          <p>5–10 Fragen zu den wichtigsten Punkten. Klick drauf, und die Antwort erscheint. Mischen, wiederholen, fertig.</p>
+        </div>
+        <div class="feat">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+          <h3>Alles durchsuchbar</h3>
+          <p>Jedes Video wird mit Karten gespeichert. Die Suche findet Titel, Zusammenfassungen und Karteninhalte sofort wieder.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="so-gehts" style="padding-top:0">
+    <div class="wrap">
+      <div class="kicker">So geht's</div>
+      <h2 class="display">Drei Schritte, null Aufwand.</h2>
+      <div class="grid3 steps">
+        <div class="step"><h3>Gratis-Key holen</h3><p>Einmalig einen kostenlosen Gemini-Schlüssel bei Google AI Studio erstellen. Die App zeigt dir, wie.</p></div>
+        <div class="step"><h3>Link einfügen</h3><p>YouTube-Link kopieren, in ClipCards einfügen, auf „Los“ klicken.</p></div>
+        <div class="step"><h3>Lernen</h3><p>Zusammenfassung lesen, Karten umdrehen, und das jederzeit wieder.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download" class="download">
+    <div class="wrap dl-grid">
+      <div>
+        <div class="kicker">Download</div>
+        <h2 class="display">Als App installieren.</h2>
+        <p class="sub">ClipCards läuft direkt im Browser. Installiert bekommt es ein eigenes Fenster und ein Icon auf dem Desktop oder Startbildschirm und startet auch offline.</p>
+        <div class="dl-cta">
+          <button class="btn btn-brand" data-install>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+            App laden
+          </button>
+          <a class="btn btn-ghost" href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">Quellcode auf GitHub</a>
+        </div>
+        <div class="msg" id="installMsg"></div>
+      </div>
+      <div class="platforms">
+        <div class="plat"><b>Windows, Mac und Linux</b><span>In Chrome oder Edge auf „App laden“ klicken oder auf das Installieren-Symbol in der Adressleiste.</span></div>
+        <div class="plat"><b>Android</b><span>In Chrome auf „App laden“ tippen oder im Menü ⋮ „App installieren“ wählen.</span></div>
+        <div class="plat"><b>iPhone und iPad</b><span>In Safari auf „Teilen“ tippen und „Zum Home-Bildschirm“ wählen.</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="sp">© ClipCards von <a href="https://github.com/xeminz" target="_blank" rel="noopener">xeminz</a></span>
+    <a href="app/">App öffnen</a>
+    <a href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+<script>
+  // Mock-Karten im Hero umdrehen
+  document.querySelectorAll(".mcard").forEach((c) => (c.onclick = () => c.classList.toggle("flip")));
+
+  // „App laden“: echter Install-Dialog, wenn der Browser ihn anbietet, sonst passende Anleitung.
+  let installEvent = null;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; });
+  window.addEventListener("appinstalled", () => { document.getElementById("installMsg").textContent = "Installiert! Du findest ClipCards jetzt bei deinen Apps."; });
+  const standalone = matchMedia("(display-mode: standalone)").matches;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  document.querySelectorAll("[data-install]").forEach((b) => b.addEventListener("click", async () => {
+    const msg = document.getElementById("installMsg");
+    if (standalone) { location.href = "app/"; return; }
+    if (installEvent) {
+      installEvent.prompt();
+      const { outcome } = await installEvent.userChoice;
+      installEvent = null;
+      if (outcome === "accepted") msg.textContent = "Installiert! Du findest ClipCards jetzt bei deinen Apps.";
+      return;
+    }
+    document.getElementById("download").scrollIntoView();
+    msg.textContent = isIOS
+      ? "Tippe in Safari unten auf „Teilen“ und dann auf „Zum Home-Bildschirm“."
+      : "Dein Browser bietet die Installation gerade nicht direkt an. Öffne die Seite in Chrome oder Edge, oder nutze das Installieren-Symbol in der Adressleiste.";
+  }));
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
