@@ -246,13 +246,14 @@ const VIDEO_SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        properties: { question: { type: "string" }, answer: { type: "string" } },
-        required: ["question", "answer"],
+        properties: { question: { type: "string" }, answer: { type: "string" }, seconds: { type: "integer" } },
+        required: ["question", "answer", "seconds"],
       },
     },
     quiz: QUIZ_SCHEMA,
+    duration: { type: "integer" },
   },
-  required: ["title", "summary", "cards", "quiz"],
+  required: ["title", "summary", "cards", "quiz", "duration"],
 };
 
 const QUIZ_RULES = `5 Multiple-Choice-Fragen. Jede hat genau 4 Antwortmöglichkeiten ("options"), davon genau eine richtig.
@@ -266,7 +267,9 @@ Schreibe immer auf Deutsch, egal in welcher Sprache das Video ist.
 - "cards": 5 bis 10 Lernkarten. Jede Karte prüft genau einen wichtigen Gedanken aus dem Video.
   Die Frage ist konkret und ohne Kontext verständlich, die Antwort ist kurz (1–3 Sätze).
   Keine Fragen zu Nebensächlichkeiten wie Sponsoren, Begrüßung oder "Abonniert den Kanal".
-- "quiz": ${QUIZ_RULES}`;
+  "seconds": die Sekunde im Video (ab Videobeginn), an der dieser Inhalt erklärt wird. Sie muss kleiner als "duration" sein.
+- "quiz": ${QUIZ_RULES}
+- "duration": die Gesamtlänge des Videos in Sekunden.`;
 
 const QUIZ_SYSTEM = `Du erstellst ein Quiz auf Deutsch aus Lernmaterial zu einem Video.
 Gib ${QUIZ_RULES}
@@ -359,7 +362,10 @@ async function generateFromVideo(videoUrl) {
   });
   const cards = (Array.isArray(out.cards) ? out.cards : [])
     .filter((c) => c && c.question && c.answer)
-    .map((c) => ({ question: c.question, answer: c.answer }))
+    .map((c) => {
+      const validTime = Number.isInteger(c.seconds) && c.seconds >= 0 && (!Number.isInteger(out.duration) || c.seconds < out.duration);
+      return { question: c.question, answer: c.answer, ...(validTime ? { seconds: c.seconds } : {}) };
+    })
     .slice(0, 10);
   if (!out.summary || cards.length === 0) throw new UserError("Die KI hat keine Karten erstellt. Bitte nochmal versuchen.");
   return { title: out.title, summary: out.summary, cards, quiz: cleanQuiz(out.quiz) };
@@ -524,7 +530,11 @@ function renderHome() {
   const lv = levelOf(s.xp), from = xpForLevel(lv), to = xpForLevel(lv + 1);
   const cards = videos.reduce((n, v) => n + v.cards.length, 0);
   const hard = videos.reduce((n, v) => n + v.cards.filter((c) => c.hard).length, 0);
+  const due = countCards(videos, isDue);
   const quizN = videos.reduce((n, v) => n + v.quiz.length, 0);
+  const exams = loadFolders()
+    .map((f) => ({ f, p: examPlan(f, videos.filter((v) => v.folderId === f.id)) }))
+    .filter((x) => x.p).sort((a, b) => a.p.days - b.p.days);
   const last = videos[0];
   const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return d; });
   const mood = !videos.length ? "Los geht's mit deinem ersten Video!"
@@ -551,11 +561,18 @@ function renderHome() {
         <div class="sub">Karten aus ${videos.length} ${videos.length === 1 ? "Video" : "Videos"} · ${quizN} Quizfragen</div></div>
     </div>
     ${videos.length ? `
+    ${exams.map(({ f, p }) => `
+      <button class="exam-banner" data-folder="${esc(f.id)}" style="--fc:${esc(f.color)}">
+        <span class="exam-ic">🎓</span>
+        <span class="eb-txt"><b>${esc(f.name)}: Prüfung ${daysText(p.days)}</b><small>${p.mastered}/${p.total} Karten sitzen${p.open ? ` · heute ${p.perDay} ${p.perDay === 1 ? "Karte" : "Karten"} empfohlen` : " · bereit!"}</small></span>
+        <span class="exam-count"><b>${p.days}</b><small>${p.days === 1 ? "Tag" : "Tage"}</small></span>
+      </button>`).join("")}
     <div class="actions-row">
+      <button class="act due" id="actDue" ${due ? "" : "disabled"}><span class="em">📅</span><small>Wiederholen</small><b>${due ? `Heute fällig: ${due} ${due === 1 ? "Karte" : "Karten"}` : "Für heute alles wiederholt ✓"}</b></button>
       <button class="act continue" id="actContinue"><img src="${thumb(last.videoId)}" alt=""><small>Weiterlernen</small><b>${esc(last.title || last.videoId)}</b></button>
-      <button class="act hard" id="actHard" ${hard ? "" : "disabled"}><span class="em">🎯</span><small>Gezielt üben</small><b>${hard ? `${hard} schwierige ${hard === 1 ? "Karte" : "Karten"}` : "Keine schwierigen Karten"}</b></button>
       <button class="act mix" id="actMix" ${quizN ? "" : "disabled"}><span class="em">🎲</span><small>Zufalls-Quiz</small><b>Gemischt aus allen Fächern</b></button>
     </div>
+    ${hard ? `<button class="hard-link" id="actHard">🎯 ${hard} schwierige ${hard === 1 ? "Karte" : "Karten"} gezielt üben →</button>` : ""}
     <div class="sec-title"><h3 class="serif">Zuletzt hinzugefügt</h3></div>
     <div class="tiles">${videos.slice(0, 8).map((v) => {
       const f = folderOf(v.folderId);
@@ -571,6 +588,8 @@ function renderHome() {
   $("#statLevel").onclick = openRewards;
   $("#actContinue") && ($("#actContinue").onclick = () => showVideo(last.id));
   $("#actHard") && ($("#actHard").onclick = () => showPractice("hard"));
+  $("#actDue") && ($("#actDue").onclick = () => showPractice("due"));
+  $$(".exam-banner").forEach((b) => (b.onclick = () => { folderFilter = b.dataset.folder; showFolder(b.dataset.folder); }));
   $("#actMix") && ($("#actMix").onclick = () => showPractice("quiz"));
   renderSidebar();
 }
@@ -579,15 +598,19 @@ function showPractice(mode) {
   view = "practice"; activeId = mode; session = null; quiz = null;
   tab = mode === "quiz" ? "quiz" : "learn";
   const scope = currentScope();
+  const head = {
+    quiz: ["🎲", "Zufalls-Quiz", "Fragen aus all deinen Videos, bunt gemischt."],
+    hard: ["🎯", "Schwierige Karten", "Alles, was du zuletzt nicht wusstest, aus allen Fächern."],
+    due: ["📅", "Heute fällig", "Karten, die laut Plan heute wiederholt werden sollten. Gewusste kommen erst in ein paar Tagen wieder."],
+  }[mode];
   $("#view").innerHTML = `
     <div class="practice-head">
-      <span class="em">${mode === "quiz" ? "🎲" : "🎯"}</span>
-      <div><h2 class="serif">${mode === "quiz" ? "Zufalls-Quiz" : "Schwierige Karten"}</h2>
-      <p>${mode === "quiz" ? "Fragen aus all deinen Videos, bunt gemischt." : "Alles, was du zuletzt nicht wusstest, aus allen Fächern."}</p></div>
+      <span class="em">${head[0]}</span>
+      <div><h2 class="serif">${head[1]}</h2><p>${head[2]}</p></div>
     </div>
     <div id="area"></div>`;
   if (mode === "quiz") renderQuiz(scope);
-  else { startSession(scope, true); renderLearn(scope); }
+  else { startSession(scope, mode); renderLearn(scope); }
   renderSidebar();
 }
 
@@ -643,11 +666,12 @@ function showVideo(id, keepTab) {
         <div class="actions">
           ${folderSelect(v.folderId, "moveFolder")}
           <a class="chip" href="${esc(v.url)}" target="_blank" rel="noopener">Video ansehen</a>
+          <button class="chip" id="shareVideo">Teilen</button>
           <button class="chip danger" id="del">Löschen</button>
         </div>
       </div>
     </div>
-    <div class="summary"><span class="tag">Zusammenfassung</span>${paras}</div>
+    <div class="summary"><span class="tag">Zusammenfassung</span><button class="speak sm" id="speakSummary" title="Vorlesen" aria-label="Zusammenfassung vorlesen">🔊</button>${paras}</div>
     <div class="tabs">
       <h3 class="serif">Üben</h3>
       <button class="tab ${tab === "learn" ? "on" : ""}" data-tab="learn">Lernkarten</button>
@@ -662,6 +686,8 @@ function showVideo(id, keepTab) {
     toast(fid ? `In „${folderOf(fid).name}“ verschoben` : "Aus dem Fach genommen");
     showVideo(id, true);
   };
+  $("#shareVideo").onclick = () => shareSet([v], null, v.title);
+  $("#speakSummary").onclick = () => speak(v.summary);
   $("#del").onclick = () => {
     if (!confirm("Dieses Video samt Karten löschen?")) return;
     saveVideos(loadVideos().filter((x) => x.id !== id));
@@ -673,6 +699,35 @@ function showVideo(id, keepTab) {
   else if (tab === "quiz") renderQuiz({ key: v.id, videos: [v] });
   else renderAllCards(v);
   renderSidebar();
+}
+
+// ---------- Prüfungsmodus ----------
+function examOf(f) {
+  if (!f?.exam) return null;
+  const days = Math.round((new Date(f.exam + "T12:00") - new Date(dayKey() + "T12:00")) / 86400000);
+  return days >= 0 ? { date: f.exam, days } : null;
+}
+function examPlan(f, videos) {
+  const ex = examOf(f);
+  if (!ex) return null;
+  const total = countCards(videos, () => true);
+  const mastered = countCards(videos, isMastered);
+  const open = total - mastered;
+  const perDay = open ? Math.ceil(open / Math.max(ex.days, 1)) : 0;
+  return { ...ex, total, mastered, open, perDay };
+}
+const examDateText = (d) => new Date(d + "T12:00").toLocaleDateString("de", { weekday: "short", day: "numeric", month: "long" });
+const daysText = (n) => (n === 0 ? "heute" : n === 1 ? "morgen" : `in ${n} Tagen`);
+function examBox(f, videos) {
+  const p = examPlan(f, videos);
+  if (!p) return `<button class="exam-set" id="setExam">🎓 Prüfungsdatum eintragen</button>`;
+  return `
+    <div class="exam">
+      <div class="exam-top"><span class="exam-ic">🎓</span><div><b>Prüfung ${daysText(p.days)}</b><small>${examDateText(p.date)}</small></div>
+        <div class="exam-count"><b>${p.days}</b><small>${p.days === 1 ? "Tag" : "Tage"}</small></div></div>
+      <div class="meter"><span style="width:${p.total ? (p.mastered / p.total) * 100 : 0}%"></span></div>
+      <div class="exam-sub">${p.mastered} von ${p.total} Karten sitzen schon${p.open ? ` · Empfehlung: <b>heute ${p.perDay} ${p.perDay === 1 ? "Karte" : "Karten"}</b> lernen` : " · Du bist bereit! 💪"}</div>
+    </div>`;
 }
 
 function showFolder(fid) {
@@ -693,8 +748,10 @@ function showFolder(fid) {
         <span class="label">Fach</span>
         <h2 class="serif">${esc(f.name)}</h2>
         <div class="meta">${videos.length} ${videos.length === 1 ? "Video" : "Videos"} · ${cards} Karten${hard ? ` · ${hard} schwer` : ""} · ${quizCount} Quizfragen</div>
+        ${examBox(f, videos)}
         <div class="actions">
-          <button class="chip" id="renameFolder">Umbenennen</button>
+          <button class="chip" id="renameFolder">Bearbeiten</button>
+          <button class="chip" id="shareFolder" ${cards ? "" : "disabled"}>Fach teilen</button>
           <button class="chip" id="exportFolder" ${cards ? "" : "disabled"}>Für Anki/Quizlet exportieren</button>
           <button class="chip danger" id="deleteFolder">Fach löschen</button>
         </div>
@@ -714,6 +771,8 @@ function showFolder(fid) {
   $$(".tile").forEach((b) => (b.onclick = () => showVideo(b.dataset.id)));
   $$(".tab").forEach((b) => (b.onclick = () => { tab = b.dataset.tab; showFolder(fid); }));
   $("#renameFolder").onclick = () => openFolderDialog(f);
+  $("#shareFolder").onclick = () => shareSet(videos, f, f.name);
+  $("#setExam")?.addEventListener("click", () => openFolderDialog(f, true));
   $("#exportFolder").onclick = () => exportTsv(videos, f.name);
   $("#deleteFolder").onclick = () => {
     if (!confirm(`Fach „${f.name}“ löschen? Die Videos bleiben erhalten und landen in „Ohne Fach“.`)) return;
@@ -724,7 +783,7 @@ function showFolder(fid) {
     renderEmpty();
   };
   if (videos.length) {
-    if (tab === "learn") renderLearn({ key: "f:" + fid, videos });
+    if (tab === "learn") renderLearn({ key: "f:" + fid, videos, defaultFilter: examOf(f) && countCards(videos, isDue) ? "due" : "all" });
     else renderQuiz({ key: "f:" + fid, videos });
   }
   renderSidebar();
@@ -736,10 +795,10 @@ function renderAllCards(v) {
     <div class="grid">${v.cards.map((c, i) => `
       <div class="mini-wrap">
         <div class="mini" data-i="${i}"><div class="in">
-          <div class="face front"><small>Karte ${i + 1}${c.hard ? ' · <em class="hardtag">schwer</em>' : ""}</small><div class="q">${esc(c.question)}</div></div>
+          <div class="face front"><small>Karte ${i + 1} · ${c.box ? `Stufe ${c.box}/5` : "neu"}${c.hard ? ' · <em class="hardtag">schwer</em>' : ""}</small><div class="q">${esc(c.question)}</div></div>
           <div class="face back"><small>Antwort</small><div class="a">${esc(c.answer)}</div></div>
         </div></div>
-        <div class="mini-tools"><button data-edit="${i}">Bearbeiten</button><button data-remove="${i}">Löschen</button></div>
+        <div class="mini-tools"><button data-edit="${i}">Bearbeiten</button><button data-remove="${i}">Löschen</button>${Number.isFinite(c.seconds) ? `<a href="${esc(timeUrl(v, c.seconds))}" target="_blank" rel="noopener">▶ ca. ${fmtTime(c.seconds)}</a>` : ""}</div>
       </div>`).join("")}
       <button class="add-card" id="addCard"><span>+</span>Karte hinzufügen</button>
     </div>
@@ -757,66 +816,97 @@ function renderAllCards(v) {
 }
 
 // ---------- Lernmodus ----------
-function startSession(scope, onlyHard) {
-  const items = scope.videos.flatMap((v) => v.cards.map((c, i) => ({ vid: v.id, i, hard: !!c.hard })))
-    .filter((it) => !onlyHard || it.hard);
-  session = { key: scope.key, onlyHard, items, queue: shuffle(items.map((_, n) => n)), known: 0, firstTry: 0, missed: new Set(), flipped: false };
+// ---------- Videostelle & Vorlesen ----------
+const fmtTime = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+const timeUrl = (v, sec) => `https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}&t=${Math.max(0, Math.floor(sec))}s`;
+function speak(text) {
+  if (!("speechSynthesis" in window)) return toast("Vorlesen wird von diesem Browser nicht unterstützt");
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "de-DE";
+  const voice = speechSynthesis.getVoices().find((v) => v.lang?.startsWith("de"));
+  if (voice) u.voice = voice;
+  u.rate = 1;
+  speechSynthesis.speak(u);
+}
+const stopSpeaking = () => { if ("speechSynthesis" in window) speechSynthesis.cancel(); };
+
+// ---------- Wiederholung nach Plan (Leitner-Stufen) ----------
+// Stufe 0 = neu/vergessen (heute), dann 1, 3, 7, 14, 30 Tage Abstand.
+const INTERVALS = [0, 1, 3, 7, 14, 30];
+const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return dayKey(d); };
+const isDue = (c) => !c.due || c.due <= dayKey();
+const isMastered = (c) => (c.box || 0) >= 3;
+const countCards = (videos, fn) => videos.reduce((n, v) => n + v.cards.filter(fn).length, 0);
+
+function startSession(scope, filter = "all") {
+  const test = filter === "hard" ? (c) => c.hard : filter === "due" ? isDue : () => true;
+  const items = scope.videos.flatMap((v) => v.cards.map((c, i) => ({ vid: v.id, i, ok: test(c) }))).filter((it) => it.ok);
+  session = { key: scope.key, filter, items, queue: shuffle(items.map((_, n) => n)), known: 0, firstTry: 0, missed: new Set(), flipped: false };
 }
 
 function renderLearn(scope) {
-  const hardCount = scope.videos.reduce((n, v) => n + v.cards.filter((c) => c.hard).length, 0);
-  const allCount = scope.videos.reduce((n, v) => n + v.cards.length, 0);
-  if (!session || session.key !== scope.key) startSession(scope, false);
+  const counts = {
+    all: countCards(scope.videos, () => true),
+    due: countCards(scope.videos, isDue),
+    hard: countCards(scope.videos, (c) => c.hard),
+  };
+  if (!session || session.key !== scope.key) startSession(scope, scope.defaultFilter || "all");
   const s = session;
-  const modes = `
-    <div class="modes">
-      <button class="mode ${!s.onlyHard ? "on" : ""}" id="modeAll">Alle Karten (${allCount})</button>
-      <button class="mode ${s.onlyHard ? "on" : ""}" id="modeHard" ${hardCount ? "" : "disabled"}>Nur schwierige (${hardCount})</button>
-    </div>`;
+  const modeBtn = (f, label) => `<button class="mode ${s.filter === f ? "on" : ""}" data-mode="${f}" ${counts[f] || f === "all" ? "" : "disabled"}>${label} (${counts[f]})</button>`;
+  const modes = `<div class="modes">${modeBtn("all", "Alle")}${modeBtn("due", "Heute fällig")}${modeBtn("hard", "Schwierige")}</div>`;
   const total = s.items.length;
   if (!total) {
-    $("#area").innerHTML = modes + `<div class="done"><span class="hand">Keine Karten hier.</span><p>Füg im Tab „Alle Karten“ welche hinzu.</p></div>`;
+    const msg = s.filter === "due" ? "Für heute ist alles wiederholt! 🎉" : s.filter === "hard" ? "Keine schwierigen Karten." : "Keine Karten hier.";
+    $("#area").innerHTML = modes + `<div class="done"><span class="hand">${msg}</span><p>${s.filter === "due" ? "Die nächsten Karten werden in den kommenden Tagen fällig." : "Füg im Tab „Alle Karten“ welche hinzu."}</p></div>`;
   } else if (!s.queue.length) {
     const pct = Math.round((s.firstTry / total) * 100);
     const praise = pct === 100 ? "Perfekt, alles gewusst!" : pct >= 70 ? "Stark, fast alles drin!" : pct >= 40 ? "Guter Anfang, nochmal?" : "Übung macht den Meister!";
-    const hardLeft = scope.videos.reduce((n, v) => n + (getVideo(v.id)?.cards.filter((c) => c.hard).length || 0), 0);
+    const latest = fresh(scope).videos;
+    const hardLeft = countCards(latest, (c) => c.hard);
+    const nextDue = latest.flatMap((v) => v.cards.map((c) => c.due)).filter((d) => d && d > dayKey()).sort()[0];
     $("#area").innerHTML = modes + `
       <div class="done">
         <span class="hand">${praise}</span>
         <div class="score serif">${s.firstTry} / ${total}</div>
-        <p>beim ersten Versuch gewusst${hardLeft ? ` · ${hardLeft} ${hardLeft === 1 ? "Karte ist" : "Karten sind"} noch als schwierig markiert` : ""}</p>
+        <p>beim ersten Versuch gewusst${nextDue ? ` · nächste Wiederholung am ${new Date(nextDue + "T12:00").toLocaleDateString("de", { weekday: "long", day: "numeric", month: "long" })}` : ""}</p>
         <div class="grade">
           <button class="yes" id="again">Nochmal lernen</button>
-          ${hardLeft ? `<button id="againHard">Nur schwierige üben</button>` : ""}
+          ${hardLeft ? `<button id="againHard">Schwierige üben (${hardLeft})</button>` : ""}
         </div>
       </div>`;
-    $("#again").onclick = () => { startSession(fresh(scope), false); renderLearn(fresh(scope)); };
-    $("#againHard") && ($("#againHard").onclick = () => { startSession(fresh(scope), true); renderLearn(fresh(scope)); });
+    $("#again").onclick = () => { startSession(fresh(scope), "all"); renderLearn(fresh(scope)); };
+    $("#againHard") && ($("#againHard").onclick = () => { startSession(fresh(scope), "hard"); renderLearn(fresh(scope)); });
   } else {
     const it = s.items[s.queue[0]];
     const v = getVideo(it.vid);
     const card = v.cards[it.i];
+    const stage = card.box ? `Stufe ${card.box}/5` : "neu";
     $("#area").innerHTML = modes + `
       <div class="learn">
         <div class="progress"><span>${s.known} / ${total} gewusst</span><div class="bar"><span style="width:${(s.known / total) * 100}%"></span></div><span>${s.queue.length} übrig</span></div>
         <div class="big ${s.flipped ? "flip" : ""}" id="big" tabindex="0" role="button" aria-label="Karte umdrehen">
           <div class="in">
-            <div class="face front"><small>${scope.videos.length > 1 ? esc(v.title) : "Frage"}${card.hard ? ' · <em class="hardtag">schwer</em>' : ""}</small><div class="q">${esc(card.question)}</div><div class="flip-hint">${isPhone() ? "Tippen zum Umdrehen" : "Klicken zum Umdrehen"}</div></div>
-            <div class="face back"><small>Antwort</small><div class="a">${esc(card.answer)}</div><div class="flip-hint">${isPhone() ? "Wisch nach rechts = gewusst, nach links = nochmal" : "Und, wusstest du's?"}</div></div>
+            <div class="face front"><small>${scope.videos.length > 1 ? esc(v.title) + " · " : ""}${stage}${card.hard ? ' · <em class="hardtag">schwer</em>' : ""}</small><div class="q">${esc(card.question)}</div><div class="flip-hint">${isPhone() ? "Tippen zum Umdrehen" : "Klicken zum Umdrehen"}</div></div>
+            <div class="face back"><small>Antwort</small><div class="a">${esc(card.answer)}</div>
+              ${Number.isFinite(card.seconds) ? `<a class="jump" href="${esc(timeUrl(v, card.seconds))}" target="_blank" rel="noopener">▶ Im Video ab ca. ${fmtTime(card.seconds)}</a>` : ""}
+              <div class="flip-hint">${isPhone() ? "Wisch nach rechts = gewusst, nach links = nochmal" : "Und, wusstest du's?"}</div></div>
           </div>
+          <button class="speak" id="speak" title="Vorlesen" aria-label="Vorlesen">🔊</button>
         </div>
         <div class="grade ${s.flipped ? "" : "wait"}">
           <button class="no" id="no">Nochmal</button>
           <button class="yes" id="yes">Gewusst</button>
         </div>
-        <div class="keys"><kbd>Leertaste</kbd> umdrehen · <kbd>1</kbd> nochmal · <kbd>2</kbd> gewusst</div>
+        <div class="keys"><kbd>Leertaste</kbd> umdrehen · <kbd>1</kbd> nochmal · <kbd>2</kbd> gewusst · <kbd>V</kbd> vorlesen</div>
       </div>`;
     attachSwipe($("#big"));
     $("#no").onclick = () => grade(false);
     $("#yes").onclick = () => grade(true);
+    $("#speak").onclick = (e) => { e.stopPropagation(); speak(session.flipped ? card.answer : card.question); };
+    $(".jump")?.addEventListener("click", (e) => e.stopPropagation());
   }
-  $("#modeAll").onclick = () => { startSession(fresh(scope), false); renderLearn(fresh(scope)); };
-  $("#modeHard").onclick = () => { if (hardCount) { startSession(fresh(scope), true); renderLearn(fresh(scope)); } };
+  $$("[data-mode]").forEach((b) => (b.onclick = () => { startSession(fresh(scope), b.dataset.mode); renderLearn(fresh(scope)); }));
 }
 
 // Scope mit aktuellen Daten neu laden (Karten-Markierungen ändern sich beim Lernen)
@@ -845,16 +935,27 @@ function grade(knew) {
   const n = s.queue.shift();
   const it = s.items[n];
   const button = knew ? $("#yes") : $("#no");
+  stopSpeaking();
   if (knew) {
     s.known++;
     const firstTry = !s.missed.has(n);
     if (firstTry) s.firstTry++;
-    if (firstTry) updateVideo(it.vid, (v) => { if (v.cards[it.i]) delete v.cards[it.i].hard; });
+    updateVideo(it.vid, (v) => {
+      const c = v.cards[it.i];
+      if (!c) return;
+      c.box = firstTry ? Math.min((c.box || 0) + 1, 5) : 1;
+      c.due = addDays(INTERVALS[c.box]);
+      if (firstTry) delete c.hard;
+    });
     addProgress(XP.known, 1, button);
   } else {
     s.missed.add(n);
     s.queue.push(n);
-    updateVideo(it.vid, (v) => { if (v.cards[it.i]) v.cards[it.i].hard = true; });
+    updateVideo(it.vid, (v) => {
+      const c = v.cards[it.i];
+      if (!c) return;
+      c.hard = true; c.box = 0; c.due = dayKey();
+    });
     addProgress(XP.again, 0, button);
   }
   s.flipped = false;
@@ -981,6 +1082,7 @@ document.addEventListener("keydown", (e) => {
   if (e.target.closest?.("input, textarea, select, dialog") || e.ctrlKey || e.metaKey || e.altKey) return;
   if (tab === "learn" && session && $("#big")) {
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); }
+    else if (e.key.toLowerCase() === "v") $("#speak")?.click();
     else if (e.key === "1" || e.key === "ArrowLeft") grade(false);
     else if (e.key === "2" || e.key === "ArrowRight") grade(true);
   } else if (tab === "quiz" && quiz && $(".quiz")) {
@@ -1042,28 +1144,32 @@ $("#keyForm").onsubmit = () => {
 };
 
 let editingFolder = null;
-function openFolderDialog(folder) {
+function openFolderDialog(folder, focusExam) {
   editingFolder = folder || null;
-  $("#folderTitle").textContent = folder ? "Fach umbenennen" : "Neues Fach";
+  $("#folderTitle").textContent = folder ? (focusExam ? "Prüfungsdatum" : "Fach bearbeiten") : "Neues Fach";
   $("#folderName").value = folder ? folder.name : "";
+  $("#folderExam").value = folder?.exam || "";
+  $("#folderExam").min = dayKey();
   const chosen = folder ? folder.color : COLORS[loadFolders().length % COLORS.length];
   $("#folderColors").innerHTML = COLORS.map((c) => `<label><input type="radio" name="fcolor" value="${c}" ${c === chosen ? "checked" : ""}><span style="background:${c}"></span></label>`).join("");
   $("#folderDialog").showModal();
+  if (focusExam) setTimeout(() => { $("#folderExam").focus(); $("#folderExam").showPicker?.(); }, 50);
 }
 $("#folderCancel").onclick = () => $("#folderDialog").close();
 $("#folderForm").onsubmit = () => {
   const name = $("#folderName").value.trim();
   if (!name) return;
   const color = $("#folderForm").querySelector("input[name=fcolor]:checked")?.value || COLORS[0];
+  const exam = /^\d{4}-\d{2}-\d{2}$/.test($("#folderExam").value) ? $("#folderExam").value : null;
   const folders = loadFolders();
   if (editingFolder) {
     const f = folders.find((x) => x.id === editingFolder.id);
-    if (f) { f.name = name; f.color = color; }
+    if (f) { f.name = name; f.color = color; if (exam) f.exam = exam; else delete f.exam; }
     saveFolders(folders);
     toast("Fach gespeichert");
     showFolder(editingFolder.id);
   } else {
-    const f = { id: uid(), name, color };
+    const f = { id: uid(), name, color, ...(exam ? { exam } : {}) };
     saveFolders([...folders, f]);
     folderFilter = f.id;
     toast(`Fach „${name}“ angelegt`);
@@ -1092,6 +1198,109 @@ $("#cardForm").onsubmit = () => {
   session = null;
   toast(index >= 0 ? "Karte gespeichert" : "Karte hinzugefügt");
   showVideo(videoId, true);
+};
+
+// ---------- Teilen per Link ----------
+// Die Karten stecken komprimiert im Link (nach dem #). Dieser Teil wird nie an einen Server geschickt.
+const unb64url = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+async function pipeBytes(bytes, stream) {
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+}
+async function encodeShare(data) {
+  const raw = new TextEncoder().encode(JSON.stringify(data));
+  const packed = await pipeBytes(raw, new CompressionStream("deflate-raw"));
+  let out = "";
+  for (let i = 0; i < packed.length; i += 0x8000) out += String.fromCharCode(...packed.subarray(i, i + 0x8000));
+  return btoa(out).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function decodeShare(code) {
+  const raw = await pipeBytes(unb64url(code), new DecompressionStream("deflate-raw"));
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+
+async function shareSet(videos, folder, title) {
+  try {
+    const data = {
+      app: "clipcards-share", v: 1,
+      folder: folder ? { name: folder.name, color: folder.color } : null,
+      videos: videos.map((v) => ({
+        videoId: v.videoId, title: v.title, channel: v.channel, summary: v.summary,
+        cards: v.cards.map((c) => ({ question: c.question, answer: c.answer, ...(Number.isFinite(c.seconds) ? { seconds: c.seconds } : {}) })),
+        quiz: v.quiz,
+      })),
+    };
+    const url = new URL("./", location.href).href + "#s=" + (await encodeShare(data));
+    const cards = videos.reduce((n, v) => n + v.cards.length, 0);
+    const text = `${title}: ${cards} Lernkarten auf ClipCards`;
+    if (navigator.share && isPhone()) {
+      await navigator.share({ title: "ClipCards", text, url }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast("Link kopiert! Einfach in WhatsApp & Co. einfügen");
+    }
+  } catch {
+    toast("Teilen hat nicht geklappt");
+  }
+}
+
+let pendingShare = null;
+async function checkIncomingShare() {
+  const m = location.hash.match(/^#s=([\w-]+)$/);
+  if (!m) return false;
+  history.replaceState(null, "", location.pathname + location.search);
+  try {
+    const data = await decodeShare(m[1]);
+    if (data?.app !== "clipcards-share" || !Array.isArray(data.videos)) throw new Error();
+    pendingShare = data;
+    const cards = data.videos.reduce((n, v) => n + (v.cards?.length || 0), 0);
+    $("#shareInfo").innerHTML = `
+      ${data.folder ? `<div class="share-folder"><i style="background:${COLORS.includes(data.folder.color) ? data.folder.color : COLORS[0]}"></i>${esc(data.folder.name)}</div>` : ""}
+      <p><b>${data.videos.length} ${data.videos.length === 1 ? "Video" : "Videos"}</b> mit <b>${cards} Karten</b>:</p>
+      <ul>${data.videos.slice(0, 6).map((v) => `<li><img src="${thumb(v.videoId)}" alt="">${esc(v.title || v.videoId)}</li>`).join("")}${data.videos.length > 6 ? `<li>… und ${data.videos.length - 6} weitere</li>` : ""}</ul>`;
+    $("#shareDialog").showModal();
+    return true;
+  } catch {
+    toast("Dieser Link ist kaputt oder unvollständig");
+    return false;
+  }
+}
+$("#shareCancel").onclick = () => { pendingShare = null; $("#shareDialog").close(); };
+$("#shareImport").onclick = () => {
+  const data = pendingShare;
+  pendingShare = null;
+  $("#shareDialog").close();
+  if (!data) return;
+  let folderId = null;
+  if (data.folder?.name) {
+    const folders = loadFolders();
+    const same = folders.find((f) => f.name.toLowerCase() === data.folder.name.toLowerCase());
+    if (same) folderId = same.id;
+    else {
+      folderId = uid();
+      saveFolders([...folders, { id: folderId, name: String(data.folder.name).slice(0, 40), color: COLORS.includes(data.folder.color) ? data.folder.color : COLORS[0] }]);
+    }
+  }
+  const list = loadVideos();
+  const have = new Set(list.map((v) => v.videoId));
+  let added = 0, firstId = null;
+  for (const v of data.videos) {
+    if (!v || !/^[\w-]{11}$/.test(v.videoId || "") || have.has(v.videoId) || !Array.isArray(v.cards)) continue;
+    const id = uid();
+    firstId ??= id;
+    list.unshift({
+      id, videoId: v.videoId, url: `https://www.youtube.com/watch?v=${v.videoId}`, folderId,
+      title: String(v.title || ""), channel: String(v.channel || ""), summary: String(v.summary || ""),
+      cards: v.cards.filter((c) => c?.question && c?.answer).map((c) => ({ question: String(c.question), answer: String(c.answer), ...(Number.isInteger(c.seconds) ? { seconds: c.seconds } : {}) })),
+      quiz: cleanQuiz(v.quiz), createdAt: new Date().toISOString(),
+    });
+    added++;
+  }
+  saveVideos(list);
+  const skipped = data.videos.length - added;
+  toast(added ? `${added} ${added === 1 ? "Video" : "Videos"} importiert${skipped ? `, ${skipped} hattest du schon` : ""}` : "Diese Videos hast du schon alle");
+  if (folderId && added > 1) { folderFilter = folderId; showFolder(folderId); }
+  else if (firstId) showVideo(firstId);
+  else renderHome();
 };
 
 // ---------- Export / Sichern ----------
@@ -1170,8 +1379,13 @@ if (incomingUrl) {
   $("#url").value = incomingUrl;
   history.replaceState(null, "", location.pathname);
 }
-if (!store(API_KEY)) openKeyDialog();
-else if (incomingUrl) $("#add").requestSubmit();
+// Geteilter Link? Dann zuerst den Import anbieten – dafür braucht man keinen API-Key.
+checkIncomingShare().then((shared) => {
+  if (shared) return;
+  if (!store(API_KEY)) openKeyDialog();
+  else if (incomingUrl) $("#add").requestSubmit();
+});
+window.addEventListener("hashchange", () => checkIncomingShare());
 
 // Nach dem Speichern des Keys einen wartenden Link direkt verarbeiten
 let pendingFromLanding = Boolean(incomingUrl);

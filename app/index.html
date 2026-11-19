@@ -437,6 +437,44 @@
   .levelup span { font-family: Caveat, cursive; font-size: 24px; color: #ff8a52; }
   @media (prefers-reduced-motion: reduce) { .big.go-right, .big.go-left, .big.enter, .opt.wrong, .xp-pop { animation: none; } }
   .legal a { color: inherit; }
+  /* ---------- Neue Funktionen: Fällig, Prüfung, Vorlesen, Teilen ---------- */
+  .act.due { background: linear-gradient(135deg, #34a36a, #1f6d47); }
+  .hard-link { display: block; width: 100%; text-align: left; border: 1.5px dashed var(--line); background: transparent; border-radius: 14px; padding: 12px 16px; margin: -14px 0 28px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .hard-link:hover { border-color: var(--accent); color: var(--accent); }
+  .exam-banner { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; cursor: pointer; margin-bottom: 14px;
+                 background: var(--card); border-left: 6px solid var(--fc); border-radius: 16px; padding: 14px 18px; box-shadow: var(--shadow); color: var(--ink); transition: transform .15s; }
+  .exam-banner:hover { transform: translateY(-2px); }
+  .exam-ic { font-size: 30px; }
+  .eb-txt { flex: 1; min-width: 0; }
+  .eb-txt b { display: block; font-size: 16px; }
+  .eb-txt small, .exam-top small { display: block; color: var(--muted); font-size: 13px; }
+  .exam-count { text-align: center; line-height: 1; }
+  .exam-count b { display: block; font: 700 30px Fraunces, Georgia, serif; color: var(--fc, var(--accent)); }
+  .exam-count small { font-size: 12px; color: var(--muted); }
+  .exam { background: var(--paper); border-radius: 14px; padding: 14px 16px; margin: 14px 0 4px; }
+  .exam-top { display: flex; align-items: center; gap: 12px; }
+  .exam-top > div:not(.exam-count) { flex: 1; }
+  .exam-top b { font-size: 16px; }
+  .exam .meter { height: 8px; border-radius: 99px; background: var(--paper-2); overflow: hidden; margin: 12px 0 8px; }
+  .exam .meter span { display: block; height: 100%; background: var(--fc); border-radius: 99px; }
+  .exam-sub { font-size: 14px; color: var(--muted); }
+  .exam-sub b { color: var(--ink); }
+  .exam-set { margin-top: 12px; border: 1.5px dashed var(--line); background: transparent; border-radius: 12px; padding: 10px 14px; font-weight: 600; cursor: pointer; color: var(--muted); }
+  .exam-set:hover { border-color: var(--fc); color: var(--ink); }
+  .speak { position: absolute; top: 12px; right: 12px; z-index: 2; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--paper-2); cursor: pointer; font-size: 17px; display: grid; place-items: center; transition: transform .15s; }
+  .speak:hover { transform: scale(1.08); }
+  .speak.sm { top: 10px; right: 10px; width: 34px; height: 34px; font-size: 15px; }
+  .big { position: relative; }
+  .jump { display: inline-block; margin-top: 14px; font: 600 14px Inter, sans-serif; color: var(--accent); text-decoration: none; background: var(--accent-soft); padding: 5px 11px; border-radius: 999px; align-self: flex-start; }
+  .jump:hover { text-decoration: underline; }
+  .mini-tools a { color: var(--accent); font-size: 13px; text-decoration: none; margin-left: auto; }
+  #shareInfo ul { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
+  #shareInfo li { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+  #shareInfo img { width: 64px; aspect-ratio: 16/9; object-fit: cover; border-radius: 6px; }
+  .share-folder { display: inline-flex; align-items: center; gap: 8px; background: var(--paper-2); border-radius: 999px; padding: 4px 12px; font-weight: 700; margin-top: 4px; }
+  .share-folder i { width: 10px; height: 10px; border-radius: 3px; }
+  input[type="date"] { color-scheme: light dark; }
+
   /* ---------- Handy ---------- */
   .tabbar { display: none; }
   * { -webkit-tap-highlight-color: transparent; }
@@ -583,6 +621,7 @@
   <form id="folderForm" method="dialog">
     <label class="field">Name<input id="folderName" placeholder="z. B. Biologie, Mathe, Geschichte" maxlength="40" required autocomplete="off"></label>
     <div class="field">Farbe<div class="colors" id="folderColors"></div></div>
+    <label class="field">🎓 Prüfungsdatum <span style="font-weight:400;color:var(--muted)">(optional)</span><input id="folderExam" type="date"></label>
     <div class="row">
       <button type="button" class="chip" id="folderCancel">Abbrechen</button>
       <button type="submit" class="go">Speichern</button>
@@ -600,6 +639,16 @@
       <button type="submit" class="go">Speichern</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="shareDialog">
+  <h2 class="serif">Jemand hat dir Karten geschickt!</h2>
+  <div id="shareInfo"></div>
+  <p class="note">Die Karten werden nur in deinem Browser gespeichert. Videos, die du schon hast, werden übersprungen.</p>
+  <div class="row">
+    <button type="button" class="chip" id="shareCancel">Nein danke</button>
+    <button type="button" class="go" id="shareImport">Importieren</button>
+  </div>
 </dialog>
 
 <dialog id="rewardsDialog">
