@@ -51,6 +51,91 @@ function updateVideo(id, fn) {
 }
 const folderOf = (id) => loadFolders().find((f) => f.id === id);
 
+// ---------- Fortschritt: XP, Level, Lernserie, Tagesziel ----------
+const STATS_KEY = "clipcards.stats";
+const DAILY_GOAL = 20;
+const XP = { known: 10, again: 3, quizRight: 15, quizWrong: 3, newVideo: 25 };
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function loadStats() {
+  try { return { xp: 0, days: {}, ...JSON.parse(store(STATS_KEY) || "{}") }; } catch { return { xp: 0, days: {} }; }
+}
+const levelOf = (xp) => Math.floor(Math.sqrt(xp / 60)) + 1;
+const xpForLevel = (lv) => 60 * (lv - 1) ** 2;
+function streakOf(stats) {
+  let n = 0;
+  const d = new Date();
+  if (!stats.days[dayKey(d)]) d.setDate(d.getDate() - 1); // heute noch nicht gelernt: Serie zählt bis gestern
+  while (stats.days[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function addProgress(xp, cards = 0, anchor) {
+  const s = loadStats();
+  const before = levelOf(s.xp);
+  s.xp += xp;
+  const k = dayKey();
+  s.days[k] = (s.days[k] || 0) + cards;
+  if (!s.days[k] && xp) s.days[k] = 0.001; // Aktivität ohne Karten zählt für die Serie
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {}
+  renderBadges(true);
+  if (anchor && xp) xpPop(anchor, `+${xp} XP`);
+  const after = levelOf(s.xp);
+  if (after > before) levelUp(after);
+}
+function renderBadges(animate) {
+  const s = loadStats();
+  const lv = levelOf(s.xp);
+  const from = xpForLevel(lv), to = xpForLevel(lv + 1);
+  const streak = streakOf(s);
+  $("#streakN").textContent = streak;
+  $("#streakBadge").classList.toggle("cold", !s.days[dayKey()]);
+  $("#levelN").textContent = lv;
+  $("#xpN").textContent = s.xp;
+  $("#levelRing").style.strokeDashoffset = String(94.25 * (1 - (s.xp - from) / (to - from)));
+  $("#levelBadge").title = `Level ${lv} – noch ${to - s.xp} XP bis Level ${lv + 1}`;
+  if (animate) { $("#levelBadge").classList.remove("bump"); void $("#levelBadge").offsetWidth; $("#levelBadge").classList.add("bump"); }
+}
+function xpPop(anchor, text) {
+  const r = anchor.getBoundingClientRect();
+  const el = document.createElement("div");
+  el.className = "xp-pop";
+  el.textContent = text;
+  el.style.left = r.left + r.width / 2 + "px";
+  el.style.top = r.top - 6 + "px";
+  document.body.append(el);
+  setTimeout(() => el.remove(), 1000);
+}
+function levelUp(lv) {
+  $("#levelUpN").textContent = `Level ${lv}`;
+  $("#levelUp").classList.add("show");
+  confetti(160);
+  setTimeout(() => $("#levelUp").classList.remove("show"), 2200);
+}
+
+// Kleines Konfetti ohne Bibliothek
+function confetti(count = 120) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = $("#confetti"), ctx = c.getContext("2d");
+  c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const colors = ["#d9480f", "#ff9f43", "#2f7d4f", "#2563eb", "#9333ea", "#facc15"];
+  const parts = Array.from({ length: count }, () => ({
+    x: innerWidth / 2 + (Math.random() - .5) * 200, y: innerHeight * .35,
+    vx: (Math.random() - .5) * 14, vy: -Math.random() * 13 - 4,
+    w: 6 + Math.random() * 6, h: 8 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - .5) * .4,
+    color: colors[Math.floor(Math.random() * colors.length)],
+  }));
+  let frame = 0;
+  (function tick() {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (const p of parts) {
+      p.vy += .35; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    }
+    if (++frame < 160) requestAnimationFrame(tick); else ctx.clearRect(0, 0, innerWidth, innerHeight);
+  })();
+}
+
 // ---------- YouTube ----------
 function extractVideoId(input) {
   const s = String(input || "").trim();
@@ -288,6 +373,7 @@ function renderSidebar() {
   const current = sel.value;
   sel.innerHTML = `<option value="">Ohne Fach</option>` + folders.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
   sel.value = folders.some((f) => f.id === current) ? current : (folders.some((f) => f.id === folderFilter) ? folderFilter : "");
+  $("#navHome").classList.toggle("on", view === "home");
 }
 
 $("#folders").addEventListener("click", (e) => {
@@ -302,16 +388,88 @@ $("#folders").addEventListener("click", (e) => {
 $("#list").onclick = (e) => { const b = e.target.closest(".item"); if (b) showVideo(b.dataset.id); };
 let searchTimer; $("#search").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderSidebar, 150); };
 
+$("#navHome").onclick = () => { folderFilter = "all"; renderHome(); };
+$(".brand").addEventListener("click", (e) => { if (view !== "home") { e.preventDefault(); folderFilter = "all"; renderHome(); } });
+
 // ---------- Ansichten ----------
-function renderEmpty() {
-  view = "empty"; activeId = null; session = null; quiz = null;
+const renderEmpty = () => renderHome();
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 5 ? "Noch wach?" : h < 11 ? "Guten Morgen!" : h < 17 ? "Hallo!" : h < 22 ? "Guten Abend!" : "Späte Lernrunde?";
+}
+
+function renderHome() {
+  view = "home"; activeId = null; session = null; quiz = null;
+  const videos = loadVideos().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const s = loadStats();
+  const today = Math.floor(s.days[dayKey()] || 0);
+  const streak = streakOf(s);
+  const lv = levelOf(s.xp), from = xpForLevel(lv), to = xpForLevel(lv + 1);
+  const cards = videos.reduce((n, v) => n + v.cards.length, 0);
+  const hard = videos.reduce((n, v) => n + v.cards.filter((c) => c.hard).length, 0);
+  const quizN = videos.reduce((n, v) => n + v.quiz.length, 0);
+  const last = videos[0];
+  const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return d; });
+  const mood = !videos.length ? "Los geht's mit deinem ersten Video!"
+    : today >= DAILY_GOAL ? "Tagesziel geschafft, stark!"
+    : streak >= 3 ? `${streak} Tage am Stück, weiter so!`
+    : hard ? `${hard} ${hard === 1 ? "Karte wartet" : "Karten warten"} auf eine zweite Chance.`
+    : "Bereit für eine Runde?";
+
   $("#view").innerHTML = `
+    <div class="hello">
+      <div><h1 class="serif">${greeting()}</h1><span class="hand">${mood}</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat" style="--tint:#ff6a1f"><small>Lernserie</small><div class="big-n">${streak} ${streak === 1 ? "Tag" : "Tage"} 🔥</div>
+        <div class="week">${week.map((d) => `<i class="${s.days[dayKey(d)] ? "on" : ""} ${dayKey(d) === dayKey() ? "today" : ""}"><span>${"SMDMDFS"[d.getDay()]}</span></i>`).join("")}</div></div>
+      <div class="stat" style="--tint:#2f7d4f"><small>Heute gelernt</small><div class="big-n">${today} <span style="font-size:18px;color:var(--muted)">/ ${DAILY_GOAL}</span></div>
+        <div class="sub">${today >= DAILY_GOAL ? "Tagesziel erreicht 🎉" : `Noch ${DAILY_GOAL - today} Karten bis zum Tagesziel`}</div>
+        <div class="meter"><span style="width:${Math.min(100, (today / DAILY_GOAL) * 100)}%"></span></div></div>
+      <div class="stat" style="--tint:#7c3aed"><small>Level</small><div class="big-n">${lv}</div>
+        <div class="sub">${s.xp} XP · noch ${to - s.xp} bis Level ${lv + 1}</div>
+        <div class="meter"><span style="width:${((s.xp - from) / (to - from)) * 100}%"></span></div></div>
+      <div class="stat" style="--tint:#2563eb"><small>Deine Sammlung</small><div class="big-n">${cards}</div>
+        <div class="sub">Karten aus ${videos.length} ${videos.length === 1 ? "Video" : "Videos"} · ${quizN} Quizfragen</div></div>
+    </div>
+    ${videos.length ? `
+    <div class="actions-row">
+      <button class="act continue" id="actContinue"><img src="${thumb(last.videoId)}" alt=""><small>Weiterlernen</small><b>${esc(last.title || last.videoId)}</b></button>
+      <button class="act hard" id="actHard" ${hard ? "" : "disabled"}><span class="em">🎯</span><small>Gezielt üben</small><b>${hard ? `${hard} schwierige ${hard === 1 ? "Karte" : "Karten"}` : "Keine schwierigen Karten"}</b></button>
+      <button class="act mix" id="actMix" ${quizN ? "" : "disabled"}><span class="em">🎲</span><small>Zufalls-Quiz</small><b>Gemischt aus allen Fächern</b></button>
+    </div>
+    <div class="sec-title"><h3 class="serif">Zuletzt hinzugefügt</h3></div>
+    <div class="tiles">${videos.slice(0, 8).map((v) => {
+      const f = folderOf(v.folderId);
+      return `<button class="tile" data-id="${esc(v.id)}"><img src="${thumb(v.videoId)}" alt="" loading="lazy"><b>${esc(v.title || v.videoId)}</b><small>${f ? `<em style="color:${esc(f.color)};font-style:normal">●</em> ${esc(f.name)} · ` : ""}${v.cards.length} Karten</small></button>`;
+    }).join("")}</div>` : `
     <div class="empty">
       <div class="fan"><i></i><i></i><i></i></div>
       <h2 class="serif">Noch keine Karten in Sicht.</h2>
-      <p>Kopier einen Link von YouTube, füg ihn oben ein und klick auf „Karten machen“. Ein paar Sekunden später kannst du loslernen.</p>
+      <p>Kopier einen Link von YouTube, füg ihn oben ein und klick auf „Karten machen“. Für jedes Video gibt es <b>25 XP</b>, für jede gewusste Karte <b>10 XP</b>.</p>
       <span class="hand">Tipp: Leg dir links Fächer an, z. B. „Bio“ oder „Mathe“!</span>
-    </div>`;
+    </div>`}`;
+  $$(".tile").forEach((b) => (b.onclick = () => showVideo(b.dataset.id)));
+  $("#actContinue") && ($("#actContinue").onclick = () => showVideo(last.id));
+  $("#actHard") && ($("#actHard").onclick = () => showPractice("hard"));
+  $("#actMix") && ($("#actMix").onclick = () => showPractice("quiz"));
+  renderSidebar();
+}
+
+function showPractice(mode) {
+  view = "practice"; activeId = mode; session = null; quiz = null;
+  tab = mode === "quiz" ? "quiz" : "learn";
+  const scope = currentScope();
+  $("#view").innerHTML = `
+    <div class="practice-head">
+      <span class="em">${mode === "quiz" ? "🎲" : "🎯"}</span>
+      <div><h2 class="serif">${mode === "quiz" ? "Zufalls-Quiz" : "Schwierige Karten"}</h2>
+      <p>${mode === "quiz" ? "Fragen aus all deinen Videos, bunt gemischt." : "Alles, was du zuletzt nicht wusstest, aus allen Fächern."}</p></div>
+    </div>
+    <div id="area"></div>`;
+  if (mode === "quiz") renderQuiz(scope);
+  else { startSession(scope, true); renderLearn(scope); }
   renderSidebar();
 }
 
@@ -547,6 +705,7 @@ function fresh(scope) {
 function currentScope() {
   if (view === "video") return { key: activeId, videos: [getVideo(activeId)].filter(Boolean) };
   if (view === "folder") return { key: "f:" + activeId, videos: loadVideos().filter((v) => v.folderId === activeId) };
+  if (view === "practice") return { key: "p:" + activeId, videos: loadVideos() };
   return null;
 }
 
@@ -559,22 +718,33 @@ function flip() {
 
 function grade(knew) {
   const s = session;
-  if (!s || !s.flipped || !s.queue.length || !$("#big")) return;
+  const big = $("#big");
+  if (!s || !s.flipped || !s.queue.length || !big || s.busy) return;
+  s.busy = true;
   const n = s.queue.shift();
   const it = s.items[n];
+  const button = knew ? $("#yes") : $("#no");
   if (knew) {
     s.known++;
     const firstTry = !s.missed.has(n);
     if (firstTry) s.firstTry++;
     if (firstTry) updateVideo(it.vid, (v) => { if (v.cards[it.i]) delete v.cards[it.i].hard; });
+    addProgress(XP.known, 1, button);
   } else {
     s.missed.add(n);
     s.queue.push(n);
     updateVideo(it.vid, (v) => { if (v.cards[it.i]) v.cards[it.i].hard = true; });
+    addProgress(XP.again, 0, button);
   }
   s.flipped = false;
-  renderLearn(fresh(currentScope()));
-  renderSidebar();
+  big.classList.add(knew ? "go-right" : "go-left");
+  setTimeout(() => {
+    s.busy = false;
+    renderLearn(fresh(currentScope()));
+    $("#big")?.classList.add("enter");
+    if (!s.queue.length && s.items.length && s.firstTry / s.items.length >= 0.8) confetti();
+    renderSidebar();
+  }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 300);
 }
 
 // ---------- Quiz ----------
@@ -614,6 +784,7 @@ function renderQuiz(scope) {
         <div class="grade"><button class="yes" id="quizAgain">Neues Quiz</button></div>
       </div>`;
     $("#quizAgain").onclick = () => { startQuiz(fresh(scope)); renderQuiz(fresh(scope)); };
+    if (!z.celebrated) { z.celebrated = true; if (pct >= 80) confetti(); }
   } else {
     const it = z.items[z.pos];
     const answered = z.picked !== null;
@@ -642,8 +813,11 @@ function renderQuiz(scope) {
 function pick(optionIndex) {
   const z = quiz;
   if (!z || z.picked !== null || z.pos >= z.items.length) return;
+  const button = $(`.opt[data-o="${optionIndex}"]`);
   z.picked = optionIndex;
-  if (optionIndex === z.items[z.pos].q.correct) z.score++;
+  const right = optionIndex === z.items[z.pos].q.correct;
+  if (right) z.score++;
+  addProgress(right ? XP.quizRight : XP.quizWrong, 0, button);
   renderQuiz(currentScope());
 }
 function nextQuestion() {
@@ -655,8 +829,8 @@ function nextQuestion() {
 }
 
 async function makeQuizzes(videos) {
-  const back = view === "video" ? () => showVideo(activeId, true) : () => showFolder(activeId);
   const keep = { view, activeId };
+  const back = () => goBack(keep);
   renderLoading(["Die KI liest deine Karten …", "Sie denkt sich knifflige Fragen aus …", "Und falsche Antworten, die gut klingen …"], videos.length > 1 ? `Für ${videos.length} Videos, das dauert etwas.` : "Dauert meist nur ein paar Sekunden.");
   let made = 0;
   try {
@@ -671,6 +845,14 @@ async function makeQuizzes(videos) {
   }
   view = keep.view; activeId = keep.activeId; quiz = null; tab = "quiz";
   back();
+}
+
+// Zurück zur vorherigen Ansicht (nach Laden oder Fehlern)
+function goBack(prev) {
+  if (prev.view === "video" && getVideo(prev.activeId)) return showVideo(prev.activeId, true);
+  if (prev.view === "folder" && folderOf(prev.activeId)) return showFolder(prev.activeId);
+  if (prev.view === "practice") return showPractice(prev.activeId);
+  renderHome();
 }
 
 // ---------- Tastatur ----------
@@ -716,12 +898,11 @@ $("#add").onsubmit = async (e) => {
     $("#url").value = "";
     $("#search").value = "";
     toast(`${video.cards.length} Karten${video.quiz.length ? ` und ${video.quiz.length} Quizfragen` : ""} erstellt`);
+    addProgress(XP.newVideo, 0, $("#addBtn"));
     showVideo(video.id);
   } catch (err) {
     st.textContent = err instanceof UserError ? err.message : "Unerwarteter Fehler: " + err.message;
-    if (previous.view === "video") showVideo(previous.activeId, true);
-    else if (previous.view === "folder") showFolder(previous.activeId);
-    else renderEmpty();
+    goBack(previous);
   } finally {
     btn.disabled = false;
   }
@@ -856,8 +1037,8 @@ $("#installBtn").onclick = async () => {
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
 
 // ---------- Start ----------
-const newest = loadVideos().sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-if (newest) showVideo(newest.id); else renderEmpty();
+renderBadges();
+renderHome();
 
 // Link von der Startseite übernehmen (…/app/?url=…)
 const incomingUrl = new URLSearchParams(location.search).get("url");

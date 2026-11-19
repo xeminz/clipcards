@@ -63,8 +63,15 @@
   .try input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; padding: 8px 10px; outline: none; }
   .try button { border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font: 600 16px Inter, sans-serif; padding: 12px 18px; cursor: pointer; white-space: nowrap; }
   .try button:hover { filter: brightness(1.05); }
-  .alt { margin-top: 18px; font-size: 15px; color: var(--muted); }
-  .alt a, .alt button { color: var(--ink); font-weight: 600; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--accent); }
+  .hero-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
+  .hb { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font: 600 16px Inter, sans-serif; text-decoration: none; cursor: pointer; transition: transform .15s; }
+  .hb:hover { transform: translateY(-1px); }
+  .hb svg { width: 19px; height: 19px; }
+  .hb-dark { background: var(--ink); color: var(--paper); border: 1.5px solid var(--ink); }
+  .hb-light { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .hb-light:hover { border-color: var(--ink); }
+  .hero-msg { max-width: 560px; margin: 14px auto 0; font-size: 15px; color: var(--accent); min-height: 0; }
+  .hero-msg:empty { display: none; }
 
   /* Fächer aus Karteikarten */
   .stack { position: relative; height: 330px; max-width: 760px; margin: 56px auto 0; }
@@ -173,7 +180,17 @@
       <input name="url" type="url" placeholder="YouTube-Link hier einfügen" aria-label="YouTube-Link" required>
       <button type="submit">Karten machen</button>
     </form>
-    <p class="alt">oder <button type="button" data-install>als App installieren</button> · <a href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">Code auf GitHub</a></p>
+    <div class="hero-btns">
+      <button type="button" class="hb hb-dark" data-install>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+        <span data-install-label>App installieren</span>
+      </button>
+      <a class="hb hb-light" href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.8V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg>
+        Code auf GitHub
+      </a>
+    </div>
+    <p class="hero-msg" data-msg></p>
 
     <div class="stack" aria-hidden="true">
       <div class="ix a"><small>Biologie · Karte 3</small><p>Wo findet die Photosynthese statt?</p></div>
@@ -230,11 +247,11 @@
         <div class="dl-btns">
           <button class="btn btn-accent" data-install>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
-            App installieren
+            <span data-install-label>App installieren</span>
           </button>
           <a class="btn btn-line" href="app/">Im Browser nutzen</a>
         </div>
-        <div class="msg" id="installMsg"></div>
+        <div class="msg" data-msg></div>
       </div>
       <ul class="plats">
         <li><b>Windows · Mac · Linux</b><span>Chrome oder Edge: „App installieren“ klicken oder das Symbol in der Adressleiste.</span></li>
@@ -258,26 +275,39 @@
 <script>
   document.getElementById("demo").onclick = (e) => e.currentTarget.classList.toggle("show");
 
-  // Installieren: echter Dialog, wenn der Browser ihn anbietet, sonst passende Anleitung.
+  // Installieren: echter Dialog, wenn der Browser ihn anbietet. Ist ClipCards schon installiert,
+  // wird aus dem Button „App öffnen“. Sonst gibt es eine passende Anleitung.
   let installEvent = null;
-  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; });
-  window.addEventListener("appinstalled", () => { document.getElementById("installMsg").textContent = "Installiert! Du findest ClipCards jetzt bei deinen Apps."; });
+  let installed = false;
   const standalone = matchMedia("(display-mode: standalone)").matches;
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const setLabels = (t) => document.querySelectorAll("[data-install-label]").forEach((l) => (l.textContent = t));
+  const markInstalled = () => { installed = true; setLabels("App öffnen"); };
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; installed = false; setLabels("App installieren"); });
+  window.addEventListener("appinstalled", () => { markInstalled(); say(null, "Installiert! Du findest ClipCards jetzt bei deinen Apps."); });
+  if (standalone) markInstalled();
+  navigator.getInstalledRelatedApps?.().then((apps) => { if (apps.length) markInstalled(); }).catch(() => {});
+
+  function say(button, text) {
+    const box = button?.closest("section, header")?.querySelector("[data-msg]") || document.querySelector("[data-msg]");
+    box.textContent = text;
+  }
   document.querySelectorAll("[data-install]").forEach((b) => b.addEventListener("click", async () => {
-    const msg = document.getElementById("installMsg");
-    if (standalone) { location.href = "app/"; return; }
     if (installEvent) {
       installEvent.prompt();
       const { outcome } = await installEvent.userChoice;
       installEvent = null;
-      if (outcome === "accepted") msg.textContent = "Installiert! Du findest ClipCards jetzt bei deinen Apps.";
+      if (outcome === "accepted") { markInstalled(); say(b, "Installiert! Du findest ClipCards jetzt bei deinen Apps."); }
       return;
     }
-    document.getElementById("download").scrollIntoView();
-    msg.textContent = isIOS
+    if (installed) {
+      say(b, "ClipCards ist schon installiert. Öffne es über Startmenü, Desktop oder Startbildschirm, oder klick in der Adressleiste auf „In App öffnen“.");
+      setTimeout(() => (location.href = "app/"), 1200);
+      return;
+    }
+    say(b, isIOS
       ? "Tippe in Safari unten auf „Teilen“ und dann auf „Zum Home-Bildschirm“."
-      : "Dein Browser bietet die Installation gerade nicht direkt an. Öffne die Seite in Chrome oder Edge oder nutze das Installieren-Symbol in der Adressleiste.";
+      : "Ist ClipCards vielleicht schon installiert? Dann findest du es im Startmenü oder über „In App öffnen“ in der Adressleiste. Sonst: In Chrome oder Edge oben in der Adressleiste auf das Installieren-Symbol klicken.");
   }));
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
