@@ -432,6 +432,7 @@ function renderSidebar() {
   sel.innerHTML = `<option value="">Ohne Fach</option>` + folders.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
   sel.value = folders.some((f) => f.id === current) ? current : (folders.some((f) => f.id === folderFilter) ? folderFilter : "");
   $("#navHome").classList.toggle("on", view === "home");
+  syncMobileNav();
 }
 
 $("#folders").addEventListener("click", (e) => {
@@ -447,6 +448,63 @@ $("#list").onclick = (e) => { const b = e.target.closest(".item"); if (b) showVi
 let searchTimer; $("#search").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderSidebar, 150); };
 
 $("#navHome").onclick = () => { folderFilter = "all"; renderHome(); };
+
+// ---------- Handy: Leiste unten ----------
+const isPhone = () => matchMedia("(max-width: 880px)").matches;
+function syncMobileNav() {
+  document.body.dataset.view = view;
+  const lib = document.body.classList.contains("show-lib");
+  const adding = document.body.classList.contains("adding");
+  $$(".tabbar button").forEach((b) => b.classList.toggle("on",
+    b.dataset.go === "lib" ? lib : b.dataset.go === "new" ? adding && !lib : b.dataset.go === "home" ? view === "home" && !lib && !adding : false));
+}
+$(".tabbar").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const go = b.dataset.go;
+  const body = document.body.classList;
+  if (go === "rewards") return openRewards();
+  body.remove("show-lib", "adding");
+  if (go === "home") { folderFilter = "all"; renderHome(); }
+  else if (go === "lib") { body.add("show-lib"); renderSidebar(); }
+  else if (go === "new") { body.add("adding"); syncMobileNav(); setTimeout(() => $("#url").focus(), 50); }
+  scrollTo({ top: 0 });
+});
+// Auswahl eines Videos/Fachs schließt Bibliothek bzw. Eingabe und springt nach oben
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".item, .tile, .act, .crumb, .fold[data-f]:not([data-f='all']):not([data-f='none'])")) return;
+  document.body.classList.remove("show-lib", "adding");
+  syncMobileNav();
+  if (isPhone()) scrollTo({ top: 0 });
+});
+
+// Wischen: nach dem Umdrehen nach rechts = gewusst, nach links = nochmal
+function attachSwipe(el) {
+  let x0 = null, y0 = 0, dx = 0, moved = false;
+  el.addEventListener("pointerdown", (e) => { x0 = e.clientX; y0 = e.clientY; dx = 0; moved = false; });
+  el.addEventListener("pointermove", (e) => {
+    if (x0 === null || !session?.flipped) return;
+    dx = e.clientX - x0;
+    if (!moved && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - y0)) { moved = true; el.setPointerCapture?.(e.pointerId); }
+    if (moved) {
+      el.style.transition = "none";
+      el.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+      el.style.boxShadow = `0 0 0 3px ${dx > 0 ? "var(--ok)" : "var(--danger)"}`;
+      el.style.borderRadius = "10px";
+    }
+  });
+  const end = () => {
+    if (x0 === null) return;
+    x0 = null;
+    if (!moved) return;
+    el.style.transition = ""; el.style.boxShadow = "";
+    if (Math.abs(dx) > 90) { el.style.transform = ""; grade(dx > 0); }
+    else el.style.transform = "";
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+  el.addEventListener("click", () => { if (!moved) flip(); moved = false; });
+}
 $(".brand").addEventListener("click", (e) => { if (view !== "home") { e.preventDefault(); folderFilter = "all"; renderHome(); } });
 
 // ---------- Ansichten ----------
@@ -541,6 +599,9 @@ const LOADING_LINES = [
 ];
 function renderLoading(lines = LOADING_LINES, hint = "Dauert meist 10–40 Sekunden.") {
   view = "loading";
+  document.body.classList.remove("show-lib", "adding");
+  syncMobileNav();
+  scrollTo({ top: 0 });
   let i = 0;
   $("#view").innerHTML = `
     <div class="loading">
@@ -740,8 +801,8 @@ function renderLearn(scope) {
         <div class="progress"><span>${s.known} / ${total} gewusst</span><div class="bar"><span style="width:${(s.known / total) * 100}%"></span></div><span>${s.queue.length} übrig</span></div>
         <div class="big ${s.flipped ? "flip" : ""}" id="big" tabindex="0" role="button" aria-label="Karte umdrehen">
           <div class="in">
-            <div class="face front"><small>${scope.videos.length > 1 ? esc(v.title) : "Frage"}${card.hard ? ' · <em class="hardtag">schwer</em>' : ""}</small><div class="q">${esc(card.question)}</div><div class="flip-hint">Klicken zum Umdrehen</div></div>
-            <div class="face back"><small>Antwort</small><div class="a">${esc(card.answer)}</div><div class="flip-hint">Und, wusstest du's?</div></div>
+            <div class="face front"><small>${scope.videos.length > 1 ? esc(v.title) : "Frage"}${card.hard ? ' · <em class="hardtag">schwer</em>' : ""}</small><div class="q">${esc(card.question)}</div><div class="flip-hint">${isPhone() ? "Tippen zum Umdrehen" : "Klicken zum Umdrehen"}</div></div>
+            <div class="face back"><small>Antwort</small><div class="a">${esc(card.answer)}</div><div class="flip-hint">${isPhone() ? "Wisch nach rechts = gewusst, nach links = nochmal" : "Und, wusstest du's?"}</div></div>
           </div>
         </div>
         <div class="grade ${s.flipped ? "" : "wait"}">
@@ -750,7 +811,7 @@ function renderLearn(scope) {
         </div>
         <div class="keys"><kbd>Leertaste</kbd> umdrehen · <kbd>1</kbd> nochmal · <kbd>2</kbd> gewusst</div>
       </div>`;
-    $("#big").onclick = flip;
+    attachSwipe($("#big"));
     $("#no").onclick = () => grade(false);
     $("#yes").onclick = () => grade(true);
   }
