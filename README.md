@@ -21,7 +21,7 @@ ClipCards holt das Transkript eines YouTube-Videos, lässt von Google Gemini ein
 ## Installation
 
 ```bash
-git clone https://github.com/<dein-name>/clipcards.git
+git clone https://github.com/xeminz/clipcards.git
 cd clipcards
 npm install
 ```
