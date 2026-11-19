@@ -309,4 +309,17 @@ $("#installBtn").onclick = async () => {
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
 
 renderList();
+
+// Link von der Startseite übernehmen (…/app/?url=…)
+const incomingUrl = new URLSearchParams(location.search).get("url");
+if (incomingUrl) {
+  $("#url").value = incomingUrl;
+  history.replaceState(null, "", location.pathname);
+}
 if (!store(API_KEY)) openKeyDialog();
+else if (incomingUrl) $("#add").requestSubmit();
+
+// Nach dem Speichern des Keys einen wartenden Link direkt verarbeiten
+$("#keyDialog").addEventListener("close", () => {
+  if (store(API_KEY) && $("#url").value.trim() && !$("#addBtn").disabled && !activeId) $("#add").requestSubmit();
+});
