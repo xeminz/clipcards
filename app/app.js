@@ -70,7 +70,6 @@ function streakOf(stats) {
 }
 function addProgress(xp, cards = 0, anchor) {
   const s = loadStats();
-  const before = levelOf(s.xp);
   s.xp += xp;
   const k = dayKey();
   s.days[k] = (s.days[k] || 0) + cards;
@@ -78,8 +77,6 @@ function addProgress(xp, cards = 0, anchor) {
   try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {}
   renderBadges(true);
   if (anchor && xp) xpPop(anchor, `+${xp} XP`);
-  const after = levelOf(s.xp);
-  if (after > before) levelUp(after);
 }
 function renderBadges(animate) {
   const s = loadStats();
@@ -103,12 +100,6 @@ function xpPop(anchor, text) {
   el.style.top = r.top - 6 + "px";
   document.body.append(el);
   setTimeout(() => el.remove(), 1000);
-}
-function levelUp(lv) {
-  $("#levelUpN").textContent = `Level ${lv}`;
-  $("#levelUp").classList.add("show");
-  confetti(160);
-  setTimeout(() => $("#levelUp").classList.remove("show"), 2200);
 }
 
 // Kleines Konfetti ohne Bibliothek
