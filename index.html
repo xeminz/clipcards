@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClipCards – Vom Video zur Karteikarte</title>
 <meta name="description" content="Füge einen YouTube-Link ein und bekomme in Sekunden eine Zusammenfassung und Lernkarten. Gratis, ohne Anmeldung, direkt im Browser oder als App.">
-<meta name="theme-color" content="#f7f3ec">
+<meta name="theme-color" content="#f7f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16130f" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -15,256 +16,304 @@
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
   :root {
-    --paper: #f7f3ec; --paper-2: #efe8dc; --card: #fffdf8; --ink: #1f1b16; --muted: #6d655b;
-    --line: #e2d9ca; --rule: #c9dcea; --margin: #e8a0a0; --accent: #d9480f; --accent-ink: #ffffff;
-    --shadow: 0 1px 0 rgba(31,27,22,.06), 0 12px 30px -12px rgba(31,27,22,.25);
+    --paper: #f7f3ec; --paper-2: #efe8dc; --card: #fffdf8; --ink: #1f1b16; --ink-2: #4a433a; --muted: #7a7164;
+    --line: #e4dccd; --rule: #cfe0ee; --margin: #e9a3a3; --accent: #d9480f; --accent-soft: #fde6d8; --ok: #2f7d4f;
+    --dark: #1f1b16; --on-dark: #f7f3ec;
+    --shadow: 0 1px 0 rgba(31,27,22,.05), 0 18px 40px -22px rgba(31,27,22,.35);
+    --r: 22px;
   }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper: #17140f; --paper-2: #1f1b15; --card: #26211a; --ink: #f1ebe0; --muted: #a89d8e;
-      --line: #383128; --rule: #34404a; --margin: #6e3a3a; --accent: #ff7a3d;
-      --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -12px rgba(0,0,0,.6);
+    :root {
+      --paper: #16130f; --paper-2: #1e1a15; --card: #241f19; --ink: #f2ece2; --ink-2: #cfc6b8; --muted: #9d9384;
+      --line: #362f27; --rule: #2e3a45; --margin: #6b3a3a; --accent: #ff7a3d; --accent-soft: #3a2316; --ok: #5cc28a;
+      --dark: #f2ece2; --on-dark: #16130f;
+      --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 40px -22px rgba(0,0,0,.7);
     }
-  }
-  :root[data-theme="dark"] {
-    --paper: #17140f; --paper-2: #1f1b15; --card: #26211a; --ink: #f1ebe0; --muted: #a89d8e;
-    --line: #383128; --rule: #34404a; --margin: #6e3a3a; --accent: #ff7a3d;
-    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -12px rgba(0,0,0,.6);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 Inter, system-ui, sans-serif; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   a { color: inherit; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
-  .serif { font-family: Fraunces, Georgia, serif; font-variation-settings: "opsz" 144; letter-spacing: -0.02em; }
-  .hand { font-family: Caveat, cursive; color: var(--accent); }
+  p { margin: 0; }
+  h1, h2, h3 { margin: 0; }
+  .serif { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing: -.02em; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 16px; }
+  .kicker::before { content: ""; width: 18px; height: 2px; background: currentColor; border-radius: 2px; }
 
-  /* ---------- Nav ---------- */
-  nav { display: flex; align-items: center; gap: 22px; padding: 22px 0; }
-  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; font-size: 21px; margin-right: auto; }
-  .logo img { width: 32px; height: 32px; border-radius: 8px; }
-  nav .links a { text-decoration: none; color: var(--muted); font-weight: 500; font-size: 15px; }
-  nav .links a:hover { color: var(--ink); }
-  nav .links { display: flex; gap: 22px; }
-  @media (max-width: 760px) { nav .links { display: none; } }
-  .pill-btn { padding: 9px 16px; border-radius: 999px; background: var(--ink); color: var(--paper); text-decoration: none; font-weight: 600; font-size: 15px; }
+  /* Schwebende Navigation */
+  .nav { position: sticky; top: 14px; z-index: 30; display: flex; justify-content: center; padding: 0 16px; }
+  .nav .bar { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--card) 86%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: 100%; }
+  .logo { display: flex; align-items: center; gap: 8px; font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 18px; text-decoration: none; margin-right: 10px; }
+  .logo img { width: 26px; height: 26px; border-radius: 7px; }
+  .nav .links a { text-decoration: none; font-size: 15px; color: var(--ink-2); padding: 8px 12px; border-radius: 999px; }
+  .nav .links a:hover { background: var(--paper-2); color: var(--ink); }
+  .pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; background: var(--dark); color: var(--on-dark); text-decoration: none; font-weight: 600; font-size: 15px; margin-left: 6px; white-space: nowrap; }
 
-  /* ---------- Hero ---------- */
-  .hero { text-align: center; padding: 56px 0 30px; }
-  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); font-weight: 500; }
-  .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-  h1 { font-size: clamp(42px, 7.2vw, 86px); line-height: 1.02; margin: 18px auto 20px; font-weight: 700; max-width: 900px; }
-  h1 em { font-style: italic; font-weight: 500; position: relative; white-space: nowrap; }
-  h1 em svg { position: absolute; left: -2%; bottom: -0.12em; width: 104%; height: .32em; overflow: visible; }
-  .lead { font-size: 19px; color: var(--muted); max-width: 580px; margin: 0 auto 32px; }
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 50px; padding: 0 22px; border-radius: 14px; font: 600 16px/1 Inter, sans-serif; text-decoration: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn.dark { background: var(--dark); color: var(--on-dark); border-color: var(--dark); }
+  .btn svg { width: 18px; height: 18px; }
 
-  .try { display: flex; gap: 8px; max-width: 560px; margin: 0 auto; padding: 8px; background: var(--card);
-         border: 1.5px solid var(--ink); border-radius: 16px; box-shadow: 5px 5px 0 var(--ink); }
-  .try input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; padding: 8px 10px; outline: none; }
-  .try button { border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font: 600 16px Inter, sans-serif; padding: 12px 18px; cursor: pointer; white-space: nowrap; }
-  .try button:hover { filter: brightness(1.05); }
-  .hero-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
-  .hb { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font: 600 16px Inter, sans-serif; text-decoration: none; cursor: pointer; transition: transform .15s; }
-  .hb:hover { transform: translateY(-1px); }
-  .hb svg { width: 19px; height: 19px; }
-  .hb-dark { background: var(--ink); color: var(--paper); border: 1.5px solid var(--ink); }
-  .hb-light { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
-  .hb-light:hover { border-color: var(--ink); }
-  .hero-msg { max-width: 560px; margin: 14px auto 0; font-size: 15px; color: var(--accent); min-height: 0; }
-  .hero-msg:empty { display: none; }
+  /* Hero */
+  .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: 80px 0 96px; }
+  .hero h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: clamp(44px, 6.4vw, 76px); line-height: 1.02; letter-spacing: -.03em; }
+  .hero h1 em { font-style: italic; font-weight: 500; color: var(--accent); }
+  .hero .lead { font-size: 19px; color: var(--ink-2); margin: 24px 0 32px; max-width: 32em; }
+  .try { display: flex; gap: 8px; padding: 7px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: 560px; }
+  .try input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: 16px Inter, sans-serif; padding: 0 12px; height: 48px; outline: none; }
+  .try input::placeholder { color: var(--muted); }
+  .try button { border: 0; border-radius: 12px; background: var(--accent); color: #fff; font: 700 15px Inter, sans-serif; padding: 0 20px; cursor: pointer; white-space: nowrap; }
+  .hero-btns { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 26px; font-size: 14px; color: var(--muted); }
+  .facts span { display: inline-flex; align-items: center; gap: 7px; }
+  .facts svg { width: 16px; height: 16px; color: var(--ok); }
+  .msg { font-size: 14px; color: var(--ink-2); margin-top: 12px; }
 
-  /* Fächer aus Karteikarten */
-  .stack { position: relative; height: 330px; max-width: 760px; margin: 56px auto 0; }
-  .ix { position: absolute; left: 50%; top: 20px; width: 340px; max-width: 78vw; height: 220px; border-radius: 6px;
-        background: var(--card); box-shadow: var(--shadow); padding: 18px 22px 18px 44px; text-align: left;
-        background-image: linear-gradient(to right, transparent 32px, var(--margin) 32px, var(--margin) 33px, transparent 33px),
+  /* Karteikarten-Stapel */
+  .deck { position: relative; height: 430px; }
+  .ix { position: absolute; width: 330px; height: 214px; border-radius: 10px; background: var(--card); box-shadow: var(--shadow); border: 1px solid var(--line);
+        background-image: linear-gradient(to right, transparent 34px, var(--margin) 34px, var(--margin) 35.5px, transparent 35.5px),
                           repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px);
-        background-position: 0 0, 0 40px; transition: transform .4s cubic-bezier(.2,.8,.2,1); }
-  .ix small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); line-height: 22px; }
-  .ix p { margin: 0; font-size: 17px; line-height: 32px; }
-  .ix .hand { font-size: 26px; line-height: 32px; color: var(--ink); }
-  .ix.a { transform: translateX(-128%) rotate(-7deg); }
-  .ix.b { transform: translateX(28%) rotate(6deg); }
-  .ix.c { transform: translateX(-50%) rotate(-1deg); top: 50px; cursor: pointer; z-index: 2; }
-  .ix.c:hover { transform: translateX(-50%) rotate(-1deg) translateY(-6px); }
-  .ix .ans { display: none; }
-  .ix.c.show .q { display: none; }
-  .ix.c.show .ans { display: block; }
-  .note { position: absolute; left: calc(50% + 110px); top: 282px; font-size: 24px; transform: rotate(-4deg); z-index: 3; white-space: nowrap; }
-  .note svg { width: 46px; height: 40px; vertical-align: -6px; margin-left: 4px; }
-  @media (max-width: 1000px) {
-    .ix.a, .ix.b { display: none; }
-    .stack { height: 320px; }
-  }
-  @media (max-width: 560px) {
-    .note { left: auto; right: 4%; top: 285px; }
-  }
-  .hero { overflow-x: clip; }
+        background-position: 0 0, 0 52px; background-size: 100% 100%, 100% calc(100% - 52px); background-repeat: no-repeat, no-repeat;
+        padding: 16px 20px 16px 48px; }
+  .ix small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+  .ix p { font-family: Fraunces, Georgia, serif; font-size: 20px; line-height: 32px; font-weight: 500; letter-spacing: -.01em; }
+  .ix.a { top: 10px; left: 8%; transform: rotate(-7deg); opacity: .9; }
+  .ix.b { top: 70px; right: 0; transform: rotate(5deg); }
+  .ix.c { top: 180px; left: 16%; transform: rotate(-1.5deg); cursor: pointer; perspective: 1200px; background: none; border: 0; box-shadow: none; padding: 0; }
+  .ix.c .in { position: relative; width: 100%; height: 100%; transition: transform .6s cubic-bezier(.2,.8,.2,1); transform-style: preserve-3d; }
+  .ix.c.show .in { transform: rotateY(180deg); }
+  .ix.c .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 30px 60px -28px rgba(31,27,22,.5);
+        background: var(--card); background-image: linear-gradient(to right, transparent 34px, var(--margin) 34px, var(--margin) 35.5px, transparent 35.5px), repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px);
+        background-position: 0 0, 0 52px; background-size: 100% 100%, 100% calc(100% - 52px); background-repeat: no-repeat; padding: 16px 20px 16px 48px; }
+  .ix.c .back { transform: rotateY(180deg); }
+  .ix.c .back p { color: var(--accent); font-style: italic; }
+  .hint { position: absolute; bottom: 4px; right: 10%; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .hint svg { width: 18px; height: 18px; }
 
-  /* ---------- Sections ---------- */
+  /* Abschnitte */
   section { padding: 96px 0; }
-  .label { font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
-  h2 { font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; margin: 10px 0 0; font-weight: 700; }
+  .head { max-width: 640px; margin-bottom: 48px; }
+  .head h2 { font-size: clamp(34px, 4.4vw, 50px); line-height: 1.08; }
+  .head p { color: var(--ink-2); font-size: 18px; margin-top: 14px; }
+  .center { text-align: center; margin-left: auto; margin-right: auto; }
 
-  .split { display: grid; grid-template-columns: 1fr 1.3fr; gap: 56px; }
-  @media (max-width: 860px) { .split { grid-template-columns: 1fr; gap: 28px; } }
-  .split .side { position: sticky; top: 30px; align-self: start; }
-  .split .side p { color: var(--muted); margin: 16px 0 0; }
-  .rows { border-top: 1.5px solid var(--ink); }
-  .row { display: grid; grid-template-columns: 56px 1fr; gap: 10px; padding: 24px 0; border-bottom: 1px solid var(--line); }
-  .row .n { font: 500 15px Fraunces, serif; color: var(--muted); padding-top: 4px; }
-  .row h3 { margin: 0 0 4px; font-size: 22px; font-family: Fraunces, serif; font-weight: 500; }
-  .row p { margin: 0; color: var(--muted); }
+  /* Funktionen als Kacheln */
+  .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 28px; box-shadow: 0 1px 0 rgba(31,27,22,.04); }
+  .tile.w3 { grid-column: span 3; } .tile.w2 { grid-column: span 2; } .tile.w4 { grid-column: span 4; }
+  .tile .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 18px; }
+  .tile .ic svg { width: 22px; height: 22px; }
+  .tile h3 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 22px; letter-spacing: -.01em; margin-bottom: 8px; }
+  .tile p { color: var(--ink-2); font-size: 15.5px; }
+  .tile.feature { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center; }
+  .sched { display: flex; gap: 8px; align-items: flex-end; height: 120px; }
+  .sched div { flex: 1; border-radius: 8px 8px 4px 4px; background: var(--accent-soft); position: relative; }
+  .sched div span { position: absolute; bottom: -24px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .sched div:nth-child(1) { height: 22%; } .sched div:nth-child(2) { height: 38%; } .sched div:nth-child(3) { height: 56%; } .sched div:nth-child(4) { height: 76%; background: color-mix(in srgb, var(--accent) 45%, var(--accent-soft)); } .sched div:nth-child(5) { height: 100%; background: var(--accent); }
+  .quiz { display: grid; gap: 7px; margin-top: 16px; }
+  .quiz div { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 14px; background: var(--paper); }
+  .quiz div.ok { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--card)); color: var(--ok); font-weight: 600; }
 
-  .how { background: var(--paper-2); }
-  .how .head { text-align: center; max-width: 640px; margin: 0 auto 50px; }
-  .tapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
-  @media (max-width: 860px) { .tapes { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; } }
-  .tape { position: relative; background: var(--card); border-radius: 4px; padding: 34px 26px 26px; box-shadow: var(--shadow); }
-  .tape::before { content: ""; position: absolute; top: -12px; left: 50%; width: 92px; height: 26px; transform: translateX(-50%) rotate(-3deg);
-                  background: rgba(217,72,15,.22); border-left: 2px dashed rgba(255,255,255,.4); border-right: 2px dashed rgba(255,255,255,.4); }
-  .tape:nth-child(1) { transform: rotate(-1.5deg); }
-  .tape:nth-child(2) { transform: rotate(1deg) translateY(10px); }
-  .tape:nth-child(3) { transform: rotate(-.5deg); }
-  .tape .hand { font-size: 40px; line-height: 1; display: block; margin-bottom: 8px; }
-  .tape h3 { margin: 0 0 6px; font-size: 20px; }
-  .tape p { margin: 0; color: var(--muted); font-size: 16px; }
-  .tape a { color: var(--accent); }
+  /* Ablauf */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; position: relative; }
+  .steps::before { content: ""; position: absolute; top: 26px; left: 8%; right: 8%; border-top: 2px dashed var(--line); }
+  .step { position: relative; text-align: center; padding: 0 12px; }
+  .step .n { width: 54px; height: 54px; margin: 0 auto 20px; border-radius: 50%; background: var(--card); border: 2px solid var(--accent); color: var(--accent); display: grid; place-items: center; font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 22px; position: relative; }
+  .step h3 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 22px; margin-bottom: 8px; }
+  .step p { color: var(--ink-2); font-size: 15.5px; }
 
-  .dl { background: #1f1b16; color: #f1ebe0; }
-  .dl .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 50px; align-items: center; }
-  @media (max-width: 860px) { .dl .grid { grid-template-columns: 1fr; } }
-  .dl p.sub { color: #b9ae9e; margin: 16px 0 28px; max-width: 480px; }
-  .dl .label { color: #ff8a52; }
-  .dl-btns { display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 20px; border-radius: 12px; font: 600 16px Inter, sans-serif;
-         text-decoration: none; cursor: pointer; border: 0; }
-  .btn svg { width: 19px; height: 19px; }
-  .btn-accent { background: #ff6a2b; color: #1f1b16; }
-  .btn-line { background: transparent; color: #f1ebe0; border: 1.5px solid #4a4238; }
-  .btn-line:hover { border-color: #f1ebe0; }
-  .msg { margin-top: 14px; min-height: 1.4em; font-size: 15px; color: #ff8a52; }
-  .plats { list-style: none; margin: 0; padding: 0; }
-  .plats li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 16px 0; border-bottom: 1px solid #3a332a; font-size: 15px; }
-  .plats li:first-child { border-top: 1px solid #3a332a; }
-  .plats b { font-weight: 600; }
-  .plats span { color: #b9ae9e; }
-  @media (max-width: 500px) { .plats li { grid-template-columns: 1fr; gap: 2px; } }
+  /* Download */
+  .dl { background: var(--dark); color: var(--on-dark); border-radius: 32px; padding: 64px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+  .dl h2 { font-size: clamp(32px, 4vw, 46px); line-height: 1.08; margin-bottom: 14px; }
+  .dl .sub { opacity: .75; font-size: 17px; margin-bottom: 28px; }
+  .dl .btn { border: 0; }
+  .dl .btn.light { background: var(--on-dark); color: var(--dark); }
+  .dl .btn.ghost { background: transparent; color: var(--on-dark); border: 1px solid color-mix(in srgb, var(--on-dark) 30%, transparent); }
+  .dl .msg { color: var(--on-dark); opacity: .8; }
+  .plats { display: grid; gap: 10px; }
+  .plats div { background: color-mix(in srgb, var(--on-dark) 8%, transparent); border-radius: 16px; padding: 16px 18px; }
+  .plats b { display: block; font-size: 15px; margin-bottom: 2px; }
+  .plats span { font-size: 14px; opacity: .75; }
 
-  footer { padding: 30px 0 40px; color: var(--muted); font-size: 15px; }
-  footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; }
-  footer .sp { margin-right: auto; }
+  footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+  footer .sp { flex: 1; display: flex; align-items: center; gap: 10px; }
+  footer img { width: 22px; height: 22px; border-radius: 6px; }
+  footer a { text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: 1fr; padding: 56px 0 64px; gap: 24px; }
+    .deck { height: 400px; max-width: 460px; width: 100%; margin: 0 auto; }
+    .nav .links { display: none; }
+    .bento { grid-template-columns: 1fr 1fr; }
+    .tile.w3, .tile.w2, .tile.w4 { grid-column: span 1; }
+    .tile.feature { grid-column: span 2; }
+    .dl { grid-template-columns: 1fr; padding: 40px 28px; }
+  }
+  @media (max-width: 640px) {
+    section { padding: 64px 0; }
+    .bento { grid-template-columns: 1fr; }
+    .tile.feature { grid-column: span 1; grid-template-columns: 1fr; }
+    .steps { grid-template-columns: 1fr; gap: 28px; }
+    .steps::before { display: none; }
+    .ix { width: 280px; height: 190px; }
+    .ix p { font-size: 17px; line-height: 28px; }
+    .ix.a { left: 0; } .ix.c { left: 4%; top: 170px; }
+    .deck { height: 380px; }
+    .try { flex-direction: column; }
+    .try input { flex: none; }
+    .try button { height: 48px; }
+    .pill { padding: 0 14px; }
+  }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-  <nav>
+<div class="nav">
+  <div class="bar">
     <a class="logo" href="./"><img src="icons/icon-192.png" alt="">ClipCards</a>
     <div class="links">
-      <a href="#warum">Warum</a>
-      <a href="#ablauf">Ablauf</a>
+      <a href="#funktionen">Funktionen</a>
+      <a href="#ablauf">So geht's</a>
       <a href="#download">Download</a>
+      <a href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">GitHub</a>
     </div>
-    <a class="pill-btn" href="app/">App öffnen</a>
-  </nav>
+    <a class="pill" href="app/">App öffnen</a>
+  </div>
+</div>
 
+<div class="wrap">
   <header class="hero">
-    <span class="eyebrow">Gratis · ohne Anmeldung · direkt im Browser</span>
-    <h1 class="serif">Vom Video zur
-      <em>Karteikarte.<svg viewBox="0 0 300 20" preserveAspectRatio="none" aria-hidden="true"><path d="M3 14 C 70 4, 160 3, 297 10" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/></svg></em>
-    </h1>
-    <p class="lead">Link rein, kurz warten, lernen. ClipCards schaut sich das YouTube-Video an und schreibt dir eine Zusammenfassung und 5–10 Lernkarten. Auf Deutsch, auch bei englischen Videos.</p>
-
-    <form class="try" action="app/" method="get">
-      <input name="url" type="url" placeholder="YouTube-Link hier einfügen" aria-label="YouTube-Link" required>
-      <button type="submit">Karten machen</button>
-    </form>
-    <div class="hero-btns">
-      <button type="button" class="hb hb-dark" data-install>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
-        <span data-install-label>App installieren</span>
-      </button>
-      <a class="hb hb-light" href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.8V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg>
-        Code auf GitHub
-      </a>
-    </div>
-    <p class="hero-msg" data-msg></p>
-
-    <div class="stack" aria-hidden="true">
-      <div class="ix a"><small>Biologie · Karte 3</small><p>Wo findet die Photosynthese statt?</p></div>
-      <div class="ix b"><small>Geschichte · Karte 7</small><p>Warum fiel die Berliner Mauer 1989?</p></div>
-      <div class="ix c" id="demo">
-        <small class="q">Informatik · Karte 1</small>
-        <p class="q">Was speichert ein einzelnes Neuron in einem neuronalen Netz?</p>
-        <small class="ans">Antwort</small>
-        <p class="ans hand">Eine Zahl zwischen 0 und 1, die „Aktivierung“.</p>
+    <div>
+      <div class="kicker">Kostenlos · ohne Anmeldung</div>
+      <h1>Vom Video zur <em>Karteikarte.</em></h1>
+      <p class="lead">Link einfügen, kurz warten, lernen. ClipCards sieht sich das YouTube-Video an und schreibt dir eine Zusammenfassung und 5–10 Lernkarten. Immer auf Deutsch, auch bei englischen Videos.</p>
+      <form class="try" action="app/" method="get">
+        <input name="url" type="url" placeholder="YouTube-Link einfügen" aria-label="YouTube-Link" required>
+        <button type="submit">Karten erstellen</button>
+      </form>
+      <div class="hero-btns">
+        <button type="button" class="btn dark" data-install>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+          <span data-install-label>App installieren</span>
+        </button>
+        <a class="btn" href="#funktionen">Mehr erfahren</a>
       </div>
-      <div class="note hand">Klick mich!<svg viewBox="0 0 46 40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M42 30 C 30 34, 14 30, 8 12"/><path d="M3 18 L8 10 L15 16"/></svg></div>
+      <p class="msg" data-msg></p>
+      <div class="facts">
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>YouTube, Shorts, youtu.be</span>
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>Auch ohne Untertitel</span>
+        <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>Windows, Mac, Android, iPhone</span>
+      </div>
+    </div>
+
+    <div class="deck" aria-hidden="true">
+      <div class="ix a"><small>Biologie · Karte 3</small><p>Wo in der Pflanzenzelle findet die Photosynthese statt?</p></div>
+      <div class="ix b"><small>Geschichte · Karte 7</small><p>Warum fiel 1989 die Berliner Mauer?</p></div>
+      <div class="ix c" id="demo">
+        <div class="in">
+          <div class="face"><small>Informatik · Karte 1</small><p>Was speichert ein einzelnes Neuron in einem neuronalen Netz?</p></div>
+          <div class="face back"><small>Antwort</small><p>Eine Zahl zwischen 0 und 1, seine „Aktivierung“.</p></div>
+        </div>
+      </div>
+      <div class="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a2 2 0 1 1 4 0v5"/><path d="M13 10a2 2 0 1 1 4 0v2a7 7 0 0 1-7 7h-.5a6 6 0 0 1-5-2.7L3 14a2 2 0 0 1 3.3-2.2L9 15"/></svg>Karte antippen</div>
     </div>
   </header>
 </div>
 
-<main>
-  <section id="warum">
-    <div class="wrap split">
-      <div class="side">
-        <div class="label">Warum ClipCards</div>
-        <h2 class="serif">Weniger mitschreiben, mehr behalten.</h2>
-        <p>Ein Lernvideo ist schnell geschaut und genauso schnell vergessen. Erst wenn du Fragen dazu beantwortest, bleibt der Stoff hängen.</p>
+<section id="funktionen">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Funktionen</div>
+      <h2 class="serif">Weniger mitschreiben, mehr behalten.</h2>
+      <p>Ein Lernvideo ist schnell geschaut und genauso schnell vergessen. Erst wenn du Fragen dazu beantwortest, bleibt der Stoff hängen.</p>
+    </div>
+    <div class="bento">
+      <div class="tile w4 feature">
+        <div>
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
+          <h3>Wiederholung nach Plan</h3>
+          <p>Was du kannst, kommt erst nach Tagen wieder. Was du nicht wusstest, gleich nochmal. So landet der Stoff im Langzeitgedächtnis.</p>
+        </div>
+        <div class="sched" aria-hidden="true"><div><span>1 Tag</span></div><div><span>3</span></div><div><span>7</span></div><div><span>14</span></div><div><span>30</span></div></div>
       </div>
-      <div class="rows">
-        <div class="row"><span class="n">01</span><div><h3>Die KI sieht sich das Video an</h3><p>Sie liest nicht nur Untertitel, sie sieht sich das ganze Video an. Darum klappen auch Videos ohne Untertitel und in anderen Sprachen.</p></div></div>
-        <div class="row"><span class="n">02</span><div><h3>Karten, Quiz und ein Plan</h3><p>Lernkarten zum Umdrehen und ein Multiple-Choice-Quiz zu jedem Video. ClipCards plant, wann du welche Karte wiederholst: Was du kannst, kommt erst nach Tagen wieder, was du nicht wusstest, gleich nochmal.</p></div></div>
-        <div class="row"><span class="n">03</span><div><h3>Fächer und Prüfungen</h3><p>Leg Fächer wie „Bio“ oder „Mathe“ an, trag das Datum der Schularbeit ein und sieh jeden Tag, wie viel du noch lernen solltest. Ganze Fächer schickst du Freunden einfach als Link.</p></div></div>
-        <div class="row"><span class="n">04</span><div><h3>Anpassbar und exportierbar</h3><p>Bearbeite Karten oder füg eigene hinzu. Mit einem Klick exportierst du sie für Anki oder Quizlet.</p></div></div>
-        <div class="row"><span class="n">05</span><div><h3>Bleibt bei dir</h3><p>Es gibt kein Konto und keinen Server. Deine Karten liegen in deinem Browser, und mit „Sichern“ nimmst du sie auf ein anderes Gerät mit.</p></div></div>
+      <div class="tile w2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg></div>
+        <h3>Quiz</h3>
+        <p>Multiple Choice mit Erklärung.</p>
+        <div class="quiz" aria-hidden="true"><div>A · Im Zellkern</div><div class="ok">B · In den Chloroplasten ✓</div></div>
+      </div>
+      <div class="tile w2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+        <h3>Fächer & Prüfungen</h3>
+        <p>Schularbeit eintragen und jeden Tag sehen, wie viel du noch lernen solltest.</p>
+      </div>
+      <div class="tile w2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+        <h3>Teilen per Link</h3>
+        <p>Ein Video oder ein ganzes Fach an Freunde schicken, ganz ohne Server.</p>
+      </div>
+      <div class="tile w2">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+        <h3>Anki & Quizlet</h3>
+        <p>Karten bearbeiten, eigene hinzufügen und mit einem Klick exportieren.</p>
+      </div>
+      <div class="tile w3">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l5-3v10l-5-3"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg></div>
+        <h3>Die KI schaut das ganze Video</h3>
+        <p>Nicht nur die Untertitel: Darum klappen auch Videos ohne Untertitel und in anderen Sprachen. Die Karten sind immer auf Deutsch.</p>
+      </div>
+      <div class="tile w3">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+        <h3>Bleibt bei dir</h3>
+        <p>Kein Konto, kein Server. Deine Karten liegen in deinem Browser. Mit „Sichern“ nimmst du sie auf ein anderes Gerät mit.</p>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <section id="ablauf" class="how">
-    <div class="wrap">
-      <div class="head">
-        <div class="label">Ablauf</div>
-        <h2 class="serif">In drei Schritten zur ersten Karte.</h2>
-      </div>
-      <div class="tapes">
-        <div class="tape"><span class="hand">1.</span><h3>Gratis-Key holen</h3><p>Einmalig bei <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> einen kostenlosen Schlüssel erstellen. Die App erklärt dir, wie.</p></div>
-        <div class="tape"><span class="hand">2.</span><h3>Link einfügen</h3><p>YouTube-Link kopieren, einfügen, auf „Los“. Nach ein paar Sekunden ist alles da.</p></div>
-        <div class="tape"><span class="hand">3.</span><h3>Abfragen lassen</h3><p>Zusammenfassung lesen, Karten umdrehen, mischen, wiederholen.</p></div>
-      </div>
+<section id="ablauf" style="padding-top:24px">
+  <div class="wrap">
+    <div class="head center"><div class="kicker">So geht's</div><h2 class="serif">In drei Schritten zur ersten Karte.</h2></div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Gratis-Schlüssel holen</h3><p>Einmalig bei <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> einen kostenlosen Schlüssel erstellen. Die App erklärt dir, wie.</p></div>
+      <div class="step"><div class="n">2</div><h3>Link einfügen</h3><p>YouTube-Link kopieren, einfügen, auf „Los“. Nach ein paar Sekunden ist alles da.</p></div>
+      <div class="step"><div class="n">3</div><h3>Abfragen lassen</h3><p>Zusammenfassung lesen, Karten umdrehen, Quiz machen. ClipCards zeigt dir, wann du wiederholen solltest.</p></div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <section id="download" class="dl">
-    <div class="wrap grid">
+<section id="download" style="padding-top:24px">
+  <div class="wrap">
+    <div class="dl">
       <div>
-        <div class="label">Download</div>
         <h2 class="serif">Ein Klick, und es ist eine App.</h2>
-        <p class="sub">ClipCards bekommt ein eigenes Fenster und ein Icon und startet auch ohne Internet. Updates kommen automatisch.</p>
-        <div class="dl-btns">
-          <button class="btn btn-accent" data-install>
+        <p class="sub">ClipCards bekommt ein eigenes Fenster und ein Symbol und startet auch ohne Internet. Updates kommen automatisch.</p>
+        <div class="hero-btns">
+          <button class="btn light" data-install>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
             <span data-install-label>App installieren</span>
           </button>
-          <a class="btn btn-line" href="app/">Im Browser nutzen</a>
+          <a class="btn ghost" href="app/">Im Browser nutzen</a>
         </div>
         <div class="msg" data-msg></div>
       </div>
-      <ul class="plats">
-        <li><b>Windows · Mac · Linux</b><span>Chrome oder Edge: „App installieren“ klicken oder das Symbol in der Adressleiste.</span></li>
-        <li><b>Android</b><span>Chrome: „App installieren“ tippen oder Menü ⋮ → „App installieren“.</span></li>
-        <li><b>iPhone · iPad</b><span>Safari: „Teilen“ → „Zum Home-Bildschirm“.</span></li>
-      </ul>
+      <div class="plats">
+        <div><b>Windows · Mac · Linux</b><span>Chrome oder Edge: „App installieren“ oder das Symbol in der Adressleiste.</span></div>
+        <div><b>Android</b><span>Chrome: „App installieren“ oder Menü ⋮ → „App installieren“.</span></div>
+        <div><b>iPhone · iPad</b><span>Safari: „Teilen“ → „Zum Home-Bildschirm“.</span></div>
+      </div>
     </div>
-  </section>
-</main>
+  </div>
+</section>
 
 <footer>
   <div class="wrap">
-    <span class="sp">ClipCards · gebaut von <a href="https://github.com/xeminz" target="_blank" rel="noopener">xeminz</a></span>
+    <span class="sp"><img src="icons/icon-192.png" alt="">ClipCards · gebaut von xeminz</span>
     <a href="app/">App</a>
     <a href="https://github.com/xeminz/clipcards" target="_blank" rel="noopener">GitHub</a>
     <a href="impressum/">Impressum</a>
